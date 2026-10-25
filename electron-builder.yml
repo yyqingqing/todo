@@ -21,9 +21,11 @@ win:
       arch:
         - x64
   icon: build/icon.png
-  # 安装包文件名必须是纯 ASCII：GitHub release 附件对中文支持不好，
-  # 上传后 "青青-0.1.0-setup.exe" 会被削成 "-0.1.0-setup.exe"。
-  # 界面、快捷方式、卸载项仍然用 productName（青青），只有文件名走英文。
+  # exe 必须是纯 ASCII 文件名。实测：Run 键里指向「青青.exe」时，
+  # 配置、编码、权限全部正常，Windows 开机就是不执行。
+  # 换英文名排除这个变量；界面、快捷方式、卸载项仍然显示「青青」。
+  executableName: Qingqing
+  # 安装包文件名同理（GitHub release 附件对中文也支持不好）
   artifactName: Qingqing-${version}-setup.${ext}
 
 nsis:

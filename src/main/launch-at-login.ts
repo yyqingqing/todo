@@ -1,3 +1,6 @@
+import { execFileSync } from 'node:child_process'
+import { rmSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { app } from 'electron'
 import { getDb } from './db/connection'
 import { allSettings, setSetting } from './db/repo/setting.repo'
@@ -43,7 +46,63 @@ export function applyLaunchAtLogin(enabled: boolean): LaunchState {
     args: LAUNCH_ARGS,
   })
 
+  // 双保险：Run 键在部分机器上会被安全软件或系统登录优化跳过（实测遇到过），
+  // 启动文件夹里的快捷方式更不容易被拦。两处都注册，任一成功即可；
+  // 重复启动会被单实例锁挡掉，没有副作用。
+  syncStartupFolder(enabled)
+
   return getLaunchState()
+}
+
+/** 启动文件夹里的快捷方式路径 */
+function startupShortcutPath(): string {
+  return join(
+    app.getPath('appData'),
+    'Microsoft',
+    'Windows',
+    'Start Menu',
+    'Programs',
+    'Startup',
+    'Qingqing.lnk',
+  )
+}
+
+/** PowerShell 单引号字符串转义 */
+function psQuote(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`
+}
+
+/**
+ * 在启动文件夹里创建 / 删除快捷方式。
+ *
+ * Windows 的 Run 键和启动文件夹是两个独立机制。实测在用户这台机器上
+ * Run 键写了却不执行（配置正常、未禁用），所以再加一条启动文件夹路径。
+ */
+function syncStartupFolder(enabled: boolean): void {
+  const lnk = startupShortcutPath()
+  try {
+    if (!enabled) {
+      rmSync(lnk, { force: true })
+      return
+    }
+
+    const exe = app.getPath('exe')
+    const script = [
+      '$ws = New-Object -ComObject WScript.Shell',
+      `$sc = $ws.CreateShortcut(${psQuote(lnk)})`,
+      `$sc.TargetPath = ${psQuote(exe)}`,
+      "$sc.Arguments = '--hidden'",
+      `$sc.WorkingDirectory = ${psQuote(dirname(exe))}`,
+      '$sc.Save()',
+    ].join('; ')
+
+    execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+      windowsHide: true,
+      timeout: 10_000,
+    })
+  } catch {
+    // 创建失败不影响 Run 键那条路径
+  }
 }
 
 /**
