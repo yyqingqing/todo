@@ -1,4 +1,5 @@
-import { join } from 'node:path'
+import { appendFileSync, mkdirSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IPC } from '@shared/ipc-contract'
 import { PRODUCT } from '@shared/product'
@@ -31,6 +32,34 @@ let isQuitting = false
  * dev 下忽略该参数：开发时启动就该看到窗口，否则会以为程序没跑起来。
  */
 const START_HIDDEN = process.argv.includes('--hidden') && !is.dev
+
+/**
+ * 启动日志。
+ *
+ * 用途单一：排查「设置了开机自启，但重启用起来没启动」这类问题。
+ * 光看注册表只能证明"启动项写了"，证明不了"系统真的执行了"——
+ * 两者之间还隔着安全软件拦截、系统登录优化等环节。
+ *
+ * 有这一行记录就能区分：日志里没有对应时间点 = 系统压根没执行；
+ * 有 = 执行了，问题在可见性或者启动后立刻退出。
+ *
+ * 写到数据目录（不在安装目录里，卸载不会误删），只追加一行，开销可忽略。
+ */
+function logStartup(): void {
+  try {
+    const dir = app.isPackaged
+      ? join(dirname(app.getPath('exe')), '..', 'Qingqing-Data')
+      : app.getPath('userData')
+    mkdirSync(dir, { recursive: true })
+    const stamp = new Date().toISOString()
+    const args = process.argv.slice(1).join(' ')
+    appendFileSync(join(dir, 'startup.log'), `${stamp} | ${args}\n`, 'utf8')
+  } catch {
+    // 日志写不了也不能影响启动
+  }
+}
+
+logStartup()
 
 /** 关闭按钮的行为。读不到设置时按「缩到托盘」处理，这是更安全的默认值（不会误退） */
 function readCloseAction(): 'tray' | 'quit' {
