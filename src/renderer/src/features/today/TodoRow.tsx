@@ -77,7 +77,7 @@ export default function TodoRow({
               </span>
             ) : (
               // 临时事项：明确标出来，而不是靠"没有计划名"这种空缺去暗示
-              <span className="rounded-sm border border-line bg-panel px-1 py-px text-[10px] leading-normal text-ink-muted">
+              <span className="rounded-sm border border-line-strong bg-panel px-1 py-px text-[10px] leading-normal text-ink-muted">
                 临时
               </span>
             )}

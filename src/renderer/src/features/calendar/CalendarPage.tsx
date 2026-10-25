@@ -116,7 +116,9 @@ export default function CalendarPage() {
                           index % 7 !== 6 && 'border-r',
                           index < cells.length - 7 && 'border-b',
                           cell.inMonth ? 'hover:bg-panel-hover' : 'bg-panel-sunken/40',
-                          isToday && 'bg-brand-soft',
+                          // 用半透明品牌色而不是 brand-soft：后者在暗色下是很重的深青，
+                          // 会把当天格子和里面的圆环一起压没
+                          isToday && 'bg-brand/10',
                         )}
                       >
                         <span
@@ -195,15 +197,9 @@ function CompletionRing({ ratio, complete }: { ratio: number; complete: boolean 
 
   return (
     <svg width={20} height={20} viewBox="0 0 20 20" aria-hidden="true">
-      {/* 底环用 line-strong：用 line 的话与画布太接近，半圈进度会看成"没有数据" */}
-      <circle
-        cx={10}
-        cy={10}
-        r={radius}
-        fill="none"
-        stroke="var(--line-strong)"
-        strokeWidth={2.2}
-      />
+      {/* 底环用 --ring-track：浅色下要比画布深、暗色下要比画布亮，
+          用固定的 --line / --line-strong 总有一种主题会看不见 */}
+      <circle cx={10} cy={10} r={radius} fill="none" stroke="var(--ring-track)" strokeWidth={2.2} />
       {ratio > 0 ? (
         <circle
           cx={10}
