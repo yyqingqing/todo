@@ -5,12 +5,16 @@ import { getApi } from './api'
 /**
  * 实体 → 需要失效的 query 前缀。
  * 用表驱动而不是 if/else 链：加实体只加一行，不改分发逻辑（开闭原则的落点之一）。
+ *
+ * 注意 `calendar`：日历同时展示「每日完成数」和「计划进度」，
+ * 所以 todo / plan / task / category 的变更都会影响它。
+ * 漏掉这一项的表现就是「今日勾了待办，日历不动」。
  */
 const INVALIDATION: Readonly<Record<string, readonly (readonly string[])[]>> = {
-  plan: [['plan']],
-  task: [['plan']],
-  todo: [['plan'], ['todo']],
-  category: [['category'], ['plan']],
+  plan: [['plan'], ['calendar']],
+  task: [['plan'], ['calendar']],
+  todo: [['plan'], ['todo'], ['calendar']],
+  category: [['category'], ['plan'], ['calendar']],
   score: [['score']],
   setting: [['settings']],
 }
