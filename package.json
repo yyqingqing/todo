@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "青青 · 任务计划 + 每日 todolist 桌面应用",
+  "author": "Qingqing",
   "main": "./out/main/index.js",
   "scripts": {
     "postinstall": "node scripts/ensure-electron.mjs",

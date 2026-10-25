@@ -296,9 +296,7 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             <div className="flex flex-col gap-0.5">
               <span className="text-sm text-ink">开机自动启动</span>
               <span className="text-xs text-ink-muted">
-                {launchSupported
-                  ? '开机后只显示悬浮窗和托盘，不弹主窗口'
-                  : '打包安装后可开启'}
+                {launchSupported ? '开机后只显示悬浮窗和托盘，不弹主窗口' : '打包安装后可开启'}
               </span>
             </div>
             <button

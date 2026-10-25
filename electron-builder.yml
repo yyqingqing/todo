@@ -1,0 +1,43 @@
+appId: com.qingqing.app
+productName: 青青
+copyright: Copyright © 2026
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+  # 托盘图标是运行时用 app.getAppPath() 读的，不打包进去会加载失败
+  - build/icon.png
+  - "!**/*.map"
+
+asar: true
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.png
+  # 应用清单里的名称，任务管理器与通知里显示的就是它
+  artifactName: ${productName}-${version}-setup.${ext}
+
+nsis:
+  # 不做一键安装：用户要能选安装位置
+  oneClick: false
+  # 装到当前用户下（%LOCALAPPDATA%\Programs\青青），不需要管理员权限。
+  # 这也是数据库能放在安装目录内的前提 —— Program Files 对普通用户只读。
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  allowElevation: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 青青
+  installerLanguages:
+    - zh_CN
+  language: "2052"
+  # 数据在安装目录的 data/ 下，卸载时由 installer.nsh 询问是否保留
+  include: build/installer.nsh
+  deleteAppDataOnUninstall: false

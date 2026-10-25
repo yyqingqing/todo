@@ -16,7 +16,7 @@ Windows 优先的桌面效率应用：计划树 + 每日清单 + 置顶悬浮窗
 | 界面   | React 19 + TypeScript 7（strict）                      |
 | 构建   | Vite 8 + electron-vite 6                               |
 | 样式   | Tailwind CSS 4 + 语义 token                            |
-| 数据   | better-sqlite3（阶段 1 接入）                          |
+| 数据   | `node:sqlite`（Node 内置，无原生编译）                 |
 | 质量   | Biome（格式化 + lint）、Vitest、Playwright（视觉自检） |
 
 ## 开发
@@ -30,7 +30,34 @@ pnpm lint        # Biome 检查并修复
 pnpm test        # Vitest，只测 domain 层纯函数
 pnpm build       # 构建到 out/
 pnpm shot        # Playwright 截图自检 → .shots/（需先 build）
-pnpm package     # 打 Windows 安装包
+pnpm package     # 打 Windows 安装包 → dist/青青-<版本>-setup.exe
+```
+
+## 打包
+
+```bash
+pnpm package
+```
+
+产物是 NSIS 安装包（`dist/青青-<版本>-setup.exe`），支持：
+- **自选安装位置**（不做一键安装）
+- 装到当前用户下，不需要管理员权限
+- 卸载时如果检测到数据，会询问是否备份到「文档\青青」
+
+**数据跟着安装位置走**：打包后数据库在 `<安装目录>\data\qingqing.db`，
+而不是 `%APPDATA%`。装到 D 盘，数据就在 D 盘。
+
+唯一的例外：如果装到了 `Program Files` 这类普通用户不可写的位置，
+会自动回落到 `%APPDATA%\Qingqing`（启动时用探针文件实测写权限，不靠猜）。
+设置页的「存储位置」显示的是实际生效路径。
+
+网络受限时打包会在下载 NSIS 工具链时卡住（`connect ETIMEDOUT` 到 GitHub），
+用镜像：
+
+```powershell
+$env:ELECTRON_BUILDER_BINARIES_MIRROR = "https://npmmirror.com/mirrors/electron-builder-binaries/"
+$env:ELECTRON_MIRROR = "https://npmmirror.com/mirrors/electron/"
+pnpm exec electron-builder --win
 ```
 
 ## 目录约定
@@ -72,3 +99,11 @@ src/
 5. **视觉自检不要用桌面截屏**
    高 DPI 下 PowerShell 的 `CopyFromScreen` 会因进程非 DPI 感知而截偏。
    用 `pnpm shot`（Playwright 直接驱动 Electron，拿的是页面而不是屏幕）。
+
+6. **dev 版与安装版不能同时运行**
+   两者共用 `app.setName('Qingqing')`，单实例锁互斥。测安装版前先关掉 `pnpm dev`，
+   否则安装版启动后立刻退出，看起来像「打包坏了」。
+
+7. **打包时 `build/icon.png` 必须在 `files` 里**
+   托盘图标是运行时用 `app.getAppPath()` 读的，漏了它安装版就没有托盘图标
+   （dev 下正常，只有打包后才暴露）。
