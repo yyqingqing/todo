@@ -82,6 +82,9 @@
   --overlay-radius: 12px;
   --overlay-bg: rgb(255 255 255 / 0.82);
   --overlay-line: rgb(16 24 40 / 0.08);
+
+  /* ---------- 遮罩（弹窗背景） ---------- */
+  --scrim: rgb(16 24 40 / 0.45);
 }
 
 /*
@@ -110,4 +113,6 @@
 
   --overlay-bg: rgb(15 19 25 / 0.78);
   --overlay-line: rgb(255 255 255 / 0.1);
+
+  --scrim: rgb(0 0 0 / 0.6);
 }

@@ -28,6 +28,7 @@
   --color-danger-soft: var(--danger-soft);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
+  --color-scrim: var(--scrim);
 
   /* 字号阶梯：正文 14（Preset B），一屏不超过 4 级 */
   --text-xs: 12px;
@@ -56,6 +57,20 @@
 
   --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.04);
   --shadow-pop: 0 8px 24px rgb(16 24 40 / 0.1);
+
+  /* 页面切换的入场动画：短、轻，只为消除"瞬间跳变"的生硬感 */
+  --animate-page-enter: page-enter 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @layer base {

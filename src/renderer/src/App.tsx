@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import AppShell from './components/AppShell'
+import { watchSystemTheme } from './lib/theme'
 import CalendarPage from './pages/CalendarPage'
 import PlansPage from './pages/PlansPage'
 import ScorePage from './pages/ScorePage'
@@ -9,6 +11,9 @@ import TodayPage from './pages/TodayPage'
  * 桌面应用用 HashRouter：生产环境是 file:// 加载，BrowserRouter 的路径路由会 404。
  */
 export default function App() {
+  // 「跟随系统」要随系统深浅色实时变化；返回的解绑函数交给 effect 清理，避免重复挂载累积监听器
+  useEffect(() => watchSystemTheme(), [])
+
   return (
     <HashRouter>
       <Routes>

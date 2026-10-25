@@ -12,7 +12,7 @@ interface EmptyStateProps {
 export default function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16">
-      <span className="flex size-12 items-center justify-center rounded-lg border border-line bg-panel text-ink-muted">
+      <span className="flex size-12 items-center justify-center rounded-lg border border-line bg-panel text-brand">
         <Icon aria-hidden size={22} strokeWidth={1.5} />
       </span>
       <div className="flex max-w-[46ch] flex-col items-center gap-1.5 text-center">

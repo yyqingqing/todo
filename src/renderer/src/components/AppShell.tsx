@@ -1,6 +1,10 @@
-import { BarChart3, CalendarDays, Layers, ListChecks } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router'
+import { PRODUCT } from '@shared/product'
+import { BarChart3, CalendarDays, Layers, ListChecks, Settings } from 'lucide-react'
+import { useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router'
+import SettingsDialog from '../features/settings/SettingsDialog'
 import { cn } from '../lib/cn'
+import BrandMark from './BrandMark'
 
 const NAV_ITEMS = [
   { to: '/today', label: '今日', icon: ListChecks },
@@ -10,11 +14,15 @@ const NAV_ITEMS = [
 ] as const
 
 export default function AppShell() {
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const location = useLocation()
+
   return (
     <div className="flex h-full min-h-0 bg-canvas">
       <aside className="flex w-[var(--sidebar-w)] shrink-0 flex-col border-r border-line bg-panel">
-        <div className="flex h-[var(--header-h)] shrink-0 items-center px-4">
-          <span className="text-lg font-semibold tracking-tight text-ink">TODO</span>
+        <div className="flex h-[var(--header-h)] shrink-0 items-center gap-2.5 px-4">
+          <BrandMark size={20} className="text-brand" />
+          <span className="text-lg font-semibold tracking-tight text-ink">{PRODUCT.name}</span>
         </div>
 
         <nav aria-label="主导航" className="flex flex-col gap-1 p-2">
@@ -31,16 +39,32 @@ export default function AppShell() {
                 )
               }
             >
-              <Icon aria-hidden size={16} strokeWidth={1.8} />
+              <Icon aria-hidden="true" size={16} strokeWidth={1.8} />
               {label}
             </NavLink>
           ))}
         </nav>
+
+        <div className="mt-auto p-2">
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="flex h-[var(--row-h)] w-full items-center gap-2.5 rounded-md px-3 text-sm text-ink-secondary transition-colors hover:bg-panel-hover hover:text-ink"
+          >
+            <Settings aria-hidden="true" size={16} strokeWidth={1.8} />
+            设置
+          </button>
+        </div>
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <Outlet />
+        {/* key 用路径：切换页面时重挂载，让入场动画生效 */}
+        <div key={location.pathname} className="flex min-h-0 flex-1 flex-col animate-page-enter">
+          <Outlet />
+        </div>
       </main>
+
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   )
 }

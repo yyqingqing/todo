@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -31,6 +32,10 @@ function injectCsp(): Plugin {
   }
 }
 
+const { version } = JSON.parse(readFileSync(resolve('package.json'), 'utf-8')) as {
+  version: string
+}
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
@@ -45,6 +50,10 @@ export default defineConfig({
     },
   },
   renderer: {
+    // 版本号来自 package.json，避免界面里再硬编码一份导致不一致
+    define: {
+      __APP_VERSION__: JSON.stringify(version),
+    },
     plugins: [react(), tailwindcss(), injectCsp()],
     resolve: {
       alias: {
