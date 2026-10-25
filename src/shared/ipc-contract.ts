@@ -31,6 +31,14 @@ export interface Api {
     info(): Promise<DatabaseInfo>
     /** 在系统文件管理器里打开数据目录，方便手动备份 qingqing.db */
     openDataDir(): Promise<void>
+    /**
+     * 开关开机自启。返回是否真正写入了系统（开发环境返回 false）。
+     * 开发环境下 exe 是 node_modules 里的 electron.exe，注册后开机会启动一个没有
+     * dev server 的空白窗口，所以只在打包后生效。
+     */
+    setLaunchAtLogin(enabled: boolean): Promise<boolean>
+    /** 当前环境是否支持开机自启（= 是否已打包） */
+    isLaunchAtLoginSupported(): Promise<boolean>
   }
 
   category: {
@@ -113,6 +121,8 @@ export interface Api {
 export const IPC = {
   appInfo: 'app:info',
   appOpenDataDir: 'app:open-data-dir',
+  appSetLaunchAtLogin: 'app:set-launch-at-login',
+  appLaunchAtLoginSupported: 'app:launch-at-login-supported',
 
   categoryList: 'category:list',
   categorySave: 'category:save',

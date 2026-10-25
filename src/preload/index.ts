@@ -13,6 +13,8 @@ const api: Api = {
   app: {
     info: () => ipcRenderer.invoke(IPC.appInfo),
     openDataDir: () => ipcRenderer.invoke(IPC.appOpenDataDir),
+    setLaunchAtLogin: (enabled) => ipcRenderer.invoke(IPC.appSetLaunchAtLogin, enabled),
+    isLaunchAtLoginSupported: () => ipcRenderer.invoke(IPC.appLaunchAtLoginSupported),
   },
 
   category: {

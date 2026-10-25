@@ -185,10 +185,25 @@ export function createOverlayWindow(): BrowserWindow {
   return win
 }
 
+/**
+ * 记住「用户是否让悬浮窗显示」，下次启动时恢复。
+ *
+ * 不记的话，开机自启后用户什么都看不到（托盘 + 一个不出现的悬浮窗），
+ * 会以为应用没启动。写失败时静默：可见性只是偏好，丢了不影响正确性。
+ */
+function persistVisible(): void {
+  try {
+    setSetting(getDb(), 'overlay.visible', userVisible ? '1' : '0')
+  } catch {
+    // 数据库未就绪
+  }
+}
+
 export function showOverlay(): void {
   userVisible = true
   const win = overlayWindow && !overlayWindow.isDestroyed() ? overlayWindow : createOverlayWindow()
   if (!win.isVisible()) win.showInactive()
+  persistVisible()
   notifyState()
 }
 
@@ -203,6 +218,7 @@ export function hideOverlay(): void {
     }
   }
   if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.hide()
+  persistVisible()
   notifyState()
 }
 

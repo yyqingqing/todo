@@ -17,6 +17,11 @@ import { allSettings, setSetting } from '../db/repo/setting.repo'
 import { removeTask, saveTask } from '../db/repo/task.repo'
 import { createTodo, listTodosByDate, removeTodo, rolloverTodos } from '../db/repo/todo.repo'
 import { transaction } from '../db/sql'
+import {
+  isLaunchAtLoginSupported,
+  LAUNCH_AT_LOGIN_KEY,
+  syncLaunchAtLogin,
+} from '../launch-at-login'
 import { toggleTodoWithScore } from '../services/todo.service'
 import {
   getOverlayState,
@@ -146,6 +151,15 @@ export function registerIpcHandlers(): void {
     // 备份时用户通常想连 WAL 文件一起拷走，直接打开目录更省事
     const error = await shell.openPath(app.getPath('userData'))
     if (error) throw new Error(`打开数据目录失败：${error}`)
+  })
+  ipcMain.handle(IPC.appLaunchAtLoginSupported, () => isLaunchAtLoginSupported())
+  ipcMain.handle(IPC.appSetLaunchAtLogin, (_event, enabled: unknown) => {
+    const next = enabled === true
+    setSetting(getDb(), LAUNCH_AT_LOGIN_KEY, next ? '1' : '0')
+    // 设置变更后立刻同步，用户不用等下次启动
+    syncLaunchAtLogin()
+    // 返回是否真的写入了系统：开发环境是 false，界面据此提示「打包后生效」
+    return isLaunchAtLoginSupported()
   })
 
   ipcMain.handle(IPC.categoryList, () => listCategories(getDb()))

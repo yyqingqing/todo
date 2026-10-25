@@ -5,6 +5,7 @@ import { app, BrowserWindow, globalShortcut, nativeTheme, session, shell } from 
 import { closeDatabase, getDb, openDatabase } from './db/connection'
 import { allSettings } from './db/repo/setting.repo'
 import { registerIpcHandlers } from './ipc'
+import { syncLaunchAtLogin } from './launch-at-login'
 import { createTray, destroyTray } from './tray'
 import {
   disposeOverlay,
@@ -24,12 +25,27 @@ let mainWindow: BrowserWindow | null = null
 /** 正在退出：此时不再拦截窗口关闭，否则会陷入「关不掉」的死循环 */
 let isQuitting = false
 
+/**
+ * 开机自启时不弹主窗口。
+ * dev 下忽略该参数：开发时启动就该看到窗口，否则会以为程序没跑起来。
+ */
+const START_HIDDEN = process.argv.includes('--hidden') && !is.dev
+
 /** 关闭按钮的行为。读不到设置时按「缩到托盘」处理，这是更安全的默认值（不会误退） */
 function readCloseAction(): 'tray' | 'quit' {
   try {
     return allSettings(getDb())['app.closeAction'] === 'quit' ? 'quit' : 'tray'
   } catch {
     return 'tray'
+  }
+}
+
+/** 上次退出时悬浮窗是否开着。读不到就当作关闭 */
+function readOverlayVisible(): boolean {
+  try {
+    return allSettings(getDb())['overlay.visible'] === '1'
+  } catch {
+    return false
   }
 }
 
@@ -63,7 +79,11 @@ function createMainWindow(): void {
   })
 
   mainWindow = win
-  win.on('ready-to-show', () => win.show())
+  win.on('ready-to-show', () => {
+    // 开机自启（--hidden）时不显示主窗口：用户要的是悬浮窗和托盘，
+    // 不是每次开机都被一个窗口抢焦点
+    if (!START_HIDDEN) win.show()
+  })
 
   // 关闭行为：默认缩到托盘继续跑（悬浮窗还在用），用户可以在设置里改成直接退出
   win.on('close', (event) => {
@@ -146,6 +166,13 @@ if (!app.requestSingleInstanceLock()) {
     // 数据库必须在建窗口之前就绪：窗口一加载就可能通过 IPC 发起查询
     openDatabase()
     registerIpcHandlers()
+
+    // 把「开机自启」设置同步到系统；用户可能在外面手动关过，每次启动纠正一次
+    syncLaunchAtLogin()
+
+    // 恢复上次的悬浮窗状态：开机自启后主窗口是隐藏的，
+    // 如果悬浮窗也不出来，用户会以为程序没启动
+    if (readOverlayVisible()) showOverlay()
 
     // dev 下 F12 开 DevTools、F5 刷新（生产环境自动不生效）
     app.on('browser-window-created', (_, window) => {

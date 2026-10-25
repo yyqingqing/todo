@@ -6,8 +6,14 @@ import Button from '../../components/Button'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { getApi } from '../../lib/api'
 import { cn } from '../../lib/cn'
+import { queryClient } from '../../lib/query-client'
 import { applyTheme, readThemeMode, type ThemeMode } from '../../lib/theme'
-import { DEFAULT_OVERLAY_OPACITY, readOpacity, useOverlayState, useSettings } from '../../lib/use-settings'
+import {
+  DEFAULT_OVERLAY_OPACITY,
+  readOpacity,
+  useOverlayState,
+  useSettings,
+} from '../../lib/use-settings'
 
 const THEME_OPTIONS: ReadonlyArray<{ value: ThemeMode; label: string }> = [
   { value: 'system', label: '跟随系统' },
@@ -62,9 +68,16 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   }
 
   const closeAction = settings?.['app.closeAction'] === 'quit' ? 'quit' : 'tray'
+  const launchAtLogin = settings?.['app.launchAtLogin'] === '1'
 
   const setCloseAction = (value: 'tray' | 'quit'): void => {
     void getApi().setting.set('app.closeAction', value)
+  }
+
+  const toggleLaunchAtLogin = async (): Promise<void> => {
+    await getApi().app.setLaunchAtLogin(!launchAtLogin)
+    // 设置值由主进程写入，这里手动失效一次让开关立刻反映新状态
+    await queryClient.invalidateQueries({ queryKey: ['settings'] })
   }
 
   const [resetOpen, setResetOpen] = useState(false)
@@ -76,6 +89,8 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     setOpacity(DEFAULT_OVERLAY_OPACITY)
     await getApi().setting.set('overlay.opacity', String(DEFAULT_OVERLAY_OPACITY))
     await getApi().setting.set('app.closeAction', 'tray')
+    // 开机自启也属于偏好，一并关掉；它会真正去写系统注册表，所以走专用方法而不是 setting.set
+    await getApi().app.setLaunchAtLogin(false)
     setResetOpen(false)
   }
 
@@ -85,6 +100,15 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     queryFn: () => getApi().app.info(),
     enabled: open,
   })
+
+  // 是否支持开机自启（= 是否已打包）。开发环境下开关置灰并给出说明
+  const launchSupportQuery = useQuery({
+    queryKey: ['launch-at-login-supported'],
+    queryFn: () => getApi().app.isLaunchAtLoginSupported(),
+    enabled: open,
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+  const launchSupported = launchSupportQuery.data === true
 
   // 用原生 <dialog>：焦点陷阱、Esc 关闭、关闭后焦点归还浏览器已经实现好了，
   // 手写这三件事是可访问性 bug 的高发区。
@@ -194,9 +218,7 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               className="shrink-0"
               onClick={() => {
                 // 开关合一的按钮：按当前状态决定是开还是关
-                void (overlayState?.visible
-                  ? getApi().overlay.hide()
-                  : getApi().overlay.show())
+                void (overlayState?.visible ? getApi().overlay.hide() : getApi().overlay.show())
               }}
             >
               {overlayState?.visible ? '关闭悬浮窗' : '打开悬浮窗'}
@@ -266,6 +288,38 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </button>
               ))}
             </fieldset>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 border-t border-line pt-3">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm text-ink">开机自动启动</span>
+              <span className="text-xs text-ink-muted">
+                {launchSupported
+                  ? '开机后只显示悬浮窗和托盘，不弹主窗口'
+                  : '开发环境不写入系统（注册的会是 electron.exe，开机会启动一个空白窗口）。打包安装后生效'}
+              </span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={launchAtLogin}
+              aria-label="开机自动启动"
+              disabled={!launchSupported}
+              onClick={() => {
+                void toggleLaunchAtLogin()
+              }}
+              className={cn(
+                'relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40',
+                launchAtLogin ? 'bg-brand' : 'bg-line-strong',
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform',
+                  launchAtLogin ? 'translate-x-[22px]' : 'translate-x-0.5',
+                )}
+              />
+            </button>
           </div>
         </section>
 
