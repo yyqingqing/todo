@@ -52,6 +52,9 @@ export default function PlanFormDialog({ open, plan, parentId, onClose }: PlanFo
     setNoteTab('edit')
   }, [open, plan])
 
+  const effectiveParentId = plan ? plan.parentId : parentId
+  const isChildPlan = effectiveParentId !== null
+
   const submit = async (): Promise<void> => {
     const trimmed = title.trim()
     if (trimmed.length === 0) {
@@ -67,8 +70,9 @@ export default function PlanFormDialog({ open, plan, parentId, onClose }: PlanFo
       setError(null)
       await savePlan.mutateAsync({
         id: plan?.id,
-        parentId: plan ? plan.parentId : parentId,
-        categoryId: categoryId === '' ? null : categoryId,
+        parentId: effectiveParentId,
+        // 子计划不传分类，交给数据层按父计划继承
+        categoryId: isChildPlan ? null : categoryId === '' ? null : categoryId,
         title: trimmed,
         note: note.trim() === '' ? null : note.trim(),
         startDate,
@@ -135,24 +139,34 @@ export default function PlanFormDialog({ open, plan, parentId, onClose }: PlanFo
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="plan-category" className={labelClass}>
-          分类
-        </label>
-        <select
-          id="plan-category"
-          value={categoryId}
-          onChange={(event) => setCategoryId(event.target.value)}
-          className={inputClass}
-        >
-          <option value="">未分类</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* 子计划的分类跟随根计划，所以不给选择器 —— 给了也改不动，只会让人困惑 */}
+      {isChildPlan ? (
+        <div className="flex flex-col gap-1.5">
+          <span className={labelClass}>分类</span>
+          <p className="flex h-[var(--control-h)] items-center rounded-md border border-line bg-panel-sunken px-2.5 text-sm text-ink-muted">
+            跟随上级计划的分类（子计划不可单独设置）
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="plan-category" className={labelClass}>
+            分类
+          </label>
+          <select
+            id="plan-category"
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
+            className={inputClass}
+          >
+            <option value="">未分类</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">

@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { all, get, transaction } from '../sql'
 import { up as initUp } from './001-init'
+import { up as inheritCategoryUp } from './002-inherit-category'
 
 export interface Migration {
   version: number
@@ -12,7 +13,10 @@ export interface Migration {
  * 迁移列表：**只追加，不修改已发布的条目**。
  * 改历史迁移会导致老用户的库和新用户的库结构不一致，这是最难查的一类 bug。
  */
-export const MIGRATIONS: readonly Migration[] = [{ version: 1, name: 'init', up: initUp }]
+export const MIGRATIONS: readonly Migration[] = [
+  { version: 1, name: 'init', up: initUp },
+  { version: 2, name: 'inherit-category', up: inheritCategoryUp },
+]
 
 /**
  * 按版本号顺序执行未应用的迁移，返回执行后的 schema 版本。

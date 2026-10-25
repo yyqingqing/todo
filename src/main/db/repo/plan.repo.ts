@@ -169,6 +169,16 @@ export function savePlan(db: DatabaseSync, input: PlanInput): Plan {
   if (title.length === 0) throw new Error('计划标题不能为空')
   if (input.startDate > input.endDate) throw new Error('结束日期不能早于开始日期')
 
+  // 子计划的分类永远跟随父计划（最终跟随根计划）。
+  // 在数据层强制而不是只靠界面禁用：界面能绕过的地方，数据就可能变脏。
+  // 分类是粗粒度的组织维度，一棵树里混多个分类会让筛选与分类统计失去意义。
+  let categoryId = input.categoryId
+  if (input.parentId) {
+    const parent = getPlan(db, input.parentId)
+    if (!parent) throw new Error('父计划不存在')
+    categoryId = parent.categoryId
+  }
+
   const now = new Date().toISOString()
   const note = input.note?.trim() ?? null
 
@@ -185,7 +195,7 @@ export function savePlan(db: DatabaseSync, input: PlanInput): Plan {
        WHERE id = ?`,
     ).run(
       input.parentId,
-      input.categoryId,
+      categoryId,
       title,
       note,
       input.startDate,
@@ -213,7 +223,7 @@ export function savePlan(db: DatabaseSync, input: PlanInput): Plan {
   ).run(
     id,
     input.parentId,
-    input.categoryId,
+    categoryId,
     title,
     note,
     input.startDate,

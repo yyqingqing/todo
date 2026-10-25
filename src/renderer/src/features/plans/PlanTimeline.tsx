@@ -1,6 +1,6 @@
 import { progressPercent } from '@shared/domain/progress'
 import type { PlanNode } from '@shared/types'
-import { safeColorToken } from '../../lib/colors'
+import { CATEGORY_COLORS } from '../../lib/colors'
 import { addDays, todayStr } from '../../lib/date'
 
 /** 时间线窗口：今天往前 2 个月、往后 10 个月，一年跨度 */
@@ -16,6 +16,8 @@ interface PlanTimelineProps {
 interface TimelineRow {
   plan: PlanNode
   depth: number
+  /** 所属根计划在列表里的序号，决定颜色 */
+  rootIndex: number
 }
 
 function toDate(value: string): Date {
@@ -45,14 +47,21 @@ export default function PlanTimeline({ nodes, onSelect }: PlanTimelineProps) {
   const totalDays = Math.max(1, daysBetween(toDate(windowStart), toDate(windowEnd)))
 
   // 按树形顺序取行（全部展开：时间线的价值在于看全，折叠会藏掉信息）
+  //
+  // 颜色按「根计划」分配，不用分类色：时间线的主视觉单元是一棵计划树，
+  // 同一棵树的子计划必须同色，否则看不出它们是一伙的。
+  // 分类色还留着另一个问题 —— 未分类的计划都会兜底成第一个色，
+  // 几个毫不相干的计划看起来像同一条线。
   const rows: TimelineRow[] = []
-  const walk = (list: readonly PlanNode[], depth: number): void => {
+  const walk = (list: readonly PlanNode[], depth: number, rootIndex: number): void => {
     for (const plan of list) {
-      rows.push({ plan, depth })
-      walk(plan.children, depth + 1)
+      rows.push({ plan, depth, rootIndex })
+      walk(plan.children, depth + 1, rootIndex)
     }
   }
-  walk(nodes, 0)
+  nodes.forEach((root, index) => {
+    walk([root], 0, index)
+  })
 
   const todayPercent = (daysBetween(toDate(windowStart), toDate(today)) / totalDays) * 100
 
@@ -92,14 +101,16 @@ export default function PlanTimeline({ nodes, onSelect }: PlanTimelineProps) {
             还没有计划。去「计划」建一个，时间线会显示它覆盖的时间段。
           </p>
         ) : (
-          rows.map(({ plan, depth }) => {
+          rows.map(({ plan, depth, rootIndex }) => {
             const start = plan.startDate < windowStart ? windowStart : plan.startDate
             const end = plan.endDate > windowEnd ? windowEnd : plan.endDate
             const offsetDays = Math.max(0, daysBetween(toDate(windowStart), toDate(start)))
             const spanDays = Math.max(1, daysBetween(toDate(start), toDate(end)))
             const left = (offsetDays / totalDays) * 100
             const width = Math.min(100 - left, (spanDays / totalDays) * 100)
-            const color = safeColorToken(plan.categoryColor)
+            const color = CATEGORY_COLORS[rootIndex % CATEGORY_COLORS.length] ?? 'cat-1'
+            // 同色系按层级递减透明度：一棵树内部也能看出主次，但颜色仍然一致
+            const opacity = Math.max(0.45, 1 - depth * 0.2)
 
             return (
               <div key={plan.id} className="flex items-center border-b border-line last:border-b-0">
@@ -132,6 +143,7 @@ export default function PlanTimeline({ nodes, onSelect }: PlanTimelineProps) {
                       left: `${left}%`,
                       width: `${Math.max(width, 0.8)}%`,
                       backgroundColor: `var(--${color})`,
+                      opacity,
                     }}
                     aria-label={`${plan.title}，${plan.startDate} 到 ${plan.endDate}`}
                   />
