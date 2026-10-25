@@ -86,11 +86,13 @@ function createMainWindow(): void {
     if (!START_HIDDEN) win.show()
   })
 
-  // 窗口被隐藏（缩到托盘 / 快捷键）时通知界面，让它把打开的弹窗收掉。
-  // 只 hide 不重置 React 状态，从托盘恢复后弹窗会原样回来，看起来像"关不掉"。
-  win.on('hide', () => {
+  // 窗口被隐藏或最小化时通知界面，让它把打开的弹窗收掉。
+  // 这两种情况都不会重置 React 状态，恢复后弹窗会原样回来，看起来像"关不掉"。
+  const notifyHidden = (): void => {
     if (!win.isDestroyed()) win.webContents.send(IPC.windowHidden)
-  })
+  }
+  win.on('hide', notifyHidden)
+  win.on('minimize', notifyHidden)
 
   // 关闭行为：默认缩到托盘继续跑（悬浮窗还在用），用户可以在设置里改成直接退出
   win.on('close', (event) => {

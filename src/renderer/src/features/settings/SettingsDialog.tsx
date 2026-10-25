@@ -38,7 +38,7 @@ interface SettingsDialogProps {
 }
 
 export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const [themeMode, setThemeMode] = useState<ThemeMode>(readThemeMode)
 
   const { data: settings } = useSettings()
@@ -133,33 +133,62 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const launchAtLogin = launchStateQuery.data?.enabled ?? false
   const launchSupported = launchStateQuery.data?.supported ?? false
 
-  // 用原生 <dialog>：焦点陷阱、Esc 关闭、关闭后焦点归还浏览器已经实现好了，
-  // 手写这三件事是可访问性 bug 的高发区。
+  /**
+   * 不用原生 <dialog> 了。
+   *
+   * 原因：窗口被隐藏或最小化时，Chromium 会把模态对话框降级成普通元素 ——
+   * open 属性还在，但没有遮罩、位置跑到视口顶部、click 行为也变了。
+   * 之后无论 showModal 还是 close 都可能抛 InvalidStateError，
+   * 留下一个「靠上、没有遮罩、关不掉」的残影。
+   *
+   * 自绘覆盖层没有这个问题：显不显示、在不在最上层，完全由 React 状态决定，
+   * 窗口怎么折腾都不影响。代价是焦点陷阱和 Esc 要自己写（下面补了）。
+   */
   useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
+    if (!open) return
 
-    try {
-      if (open && !dialog.open) {
-        dialog.showModal()
-        // 聚焦容器而不是第一个按钮：程序化聚焦会被 Chromium 判成键盘焦点，
-        // 鼠标用户会看到按钮上一个突兀的焦点环。容器本身有边框，不需要额外轮廓。
-        dialog.focus()
-      } else if (!open && dialog.open) {
-        dialog.close()
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        onClose()
+        return
       }
-    } catch {
-      // 极端情况下元素带着 open 属性但不在 modal 状态（窗口隐藏时 Chromium
-      // 会把模态降级），此时再 showModal 会抛 InvalidStateError。
-      // 先强行 close 收干净，避免留下一个"没有遮罩、位置靠上、点不透"的残影。
-      try {
-        dialog.close()
-      } catch {
-        // close 也失败就放弃，下一轮 open 变化时会再走一次
+      if (event.key !== 'Tab') return
+
+      // Tab 在弹窗内部循环，别让焦点跑到背景页面去
+      const root = panelRef.current
+      if (!root) return
+      const focusable = root.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      )
+      if (focusable.length === 0) return
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (!first || !last) return
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
       }
-      dialog.removeAttribute('open')
     }
-  }, [open])
+
+    document.addEventListener('keydown', onKeyDown)
+    // 打开期间锁住背景滚动，避免弹窗后面的列表跟着动
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    panelRef.current?.focus()
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [open, onClose])
+
+  // 关闭时直接不渲染：DOM 里没有元素，就不存在"状态半残"的可能
+  if (!open) return null
 
   const chooseTheme = (next: ThemeMode): void => {
     setThemeMode(next)
@@ -167,269 +196,273 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   }
 
   return (
-    <dialog
-      ref={dialogRef}
-      tabIndex={-1}
-      aria-labelledby="settings-title"
-      onClose={onClose}
-      // Esc 已经由原生 dialog 处理，这里显式处理一遍保证"遮罩点击"始终有键盘等价物
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') onClose()
-      }}
-      onClick={(event) => {
-        // showModal 下点击遮罩，事件目标是 dialog 元素本身
-        if (event.target === dialogRef.current) onClose()
-      }}
-      // max-h + flex-col + 内部滚动：原生 dialog 的 UA 样式是 overflow:auto，
-      // 直接溢出会把标题栏一起滚走，关闭按钮就跑到视口外了
-      className="m-auto flex max-h-[85vh] w-[min(520px,calc(100vw-48px))] flex-col overflow-hidden rounded-lg border border-line bg-panel p-0 text-ink shadow-pop backdrop:bg-scrim focus:outline-none"
-    >
-      <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-3">
-        <h2 id="settings-title" className="text-lg font-semibold">
-          设置
-        </h2>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="关闭设置"
-          className="flex size-8 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-panel-hover hover:text-ink"
-        >
-          <X size={16} strokeWidth={1.8} aria-hidden="true" />
-        </button>
-      </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* 遮罩：点它关闭。用独立元素而不是 dialog::backdrop —— 后者只存在于模态状态 */}
+      <div
+        className="absolute inset-0 bg-scrim"
+        onClick={onClose}
+        aria-hidden="true"
+        data-testid="settings-scrim"
+      />
 
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
-        <section className="flex flex-col gap-3">
-          <h3 className="text-xs font-medium tracking-wide text-ink-muted">外观</h3>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+        tabIndex={-1}
+        className="relative flex max-h-[85vh] w-[min(520px,100%)] flex-col overflow-hidden rounded-lg border border-line bg-panel text-ink shadow-pop focus:outline-none"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-3">
+          <h2 id="settings-title" className="text-lg font-semibold">
+            设置
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="关闭设置"
+            className="flex size-8 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-panel-hover hover:text-ink"
+          >
+            <X size={16} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+        </div>
 
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm text-ink">主题</span>
-              <span className="text-xs text-ink-muted">跟随系统时随系统深浅色自动切换</span>
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
+          <section className="flex flex-col gap-3">
+            <h3 className="text-xs font-medium tracking-wide text-ink-muted">外观</h3>
+
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm text-ink">主题</span>
+                <span className="text-xs text-ink-muted">跟随系统时随系统深浅色自动切换</span>
+              </div>
+              <fieldset className="flex shrink-0 gap-0.5 rounded-md bg-panel-sunken p-0.5">
+                <legend className="sr-only">主题</legend>
+                {THEME_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={themeMode === option.value}
+                    onClick={() => chooseTheme(option.value)}
+                    className={cn(
+                      'rounded-sm px-2.5 py-1 text-xs transition-colors',
+                      themeMode === option.value
+                        ? 'bg-panel font-medium text-ink shadow-sm'
+                        : 'text-ink-muted hover:text-ink',
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </fieldset>
             </div>
-            <fieldset className="flex shrink-0 gap-0.5 rounded-md bg-panel-sunken p-0.5">
-              <legend className="sr-only">主题</legend>
-              {THEME_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  aria-pressed={themeMode === option.value}
-                  onClick={() => chooseTheme(option.value)}
-                  className={cn(
-                    'rounded-sm px-2.5 py-1 text-xs transition-colors',
-                    themeMode === option.value
-                      ? 'bg-panel font-medium text-ink shadow-sm'
-                      : 'text-ink-muted hover:text-ink',
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </fieldset>
-          </div>
-        </section>
+          </section>
 
-        <section className="flex flex-col gap-3 border-t border-line pt-4">
-          <h3 className="text-xs font-medium tracking-wide text-ink-muted">悬浮窗</h3>
+          <section className="flex flex-col gap-3 border-t border-line pt-4">
+            <h3 className="text-xs font-medium tracking-wide text-ink-muted">悬浮窗</h3>
 
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-col gap-0.5">
-              <span className="flex items-center gap-1.5 text-sm text-ink">
-                置于桌面顶端
-                {/* 状态点：让用户一眼看出现在是开着还是关着，而不是靠猜按钮语义 */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col gap-0.5">
+                <span className="flex items-center gap-1.5 text-sm text-ink">
+                  置于桌面顶端
+                  {/* 状态点：让用户一眼看出现在是开着还是关着，而不是靠猜按钮语义 */}
+                  <span
+                    className={cn(
+                      'rounded-sm border px-1 py-px text-[10px] leading-normal',
+                      overlayState?.visible
+                        ? 'border-brand/40 bg-brand-soft text-brand'
+                        : 'border-line-strong bg-panel-sunken text-ink-muted',
+                    )}
+                  >
+                    {overlayState?.visible ? '已显示' : '已关闭'}
+                  </span>
+                </span>
+                <span className="text-xs text-ink-muted">
+                  可拖到任意位置 · Ctrl+Shift+L 锁定穿透 · Ctrl+Shift+O 显示/隐藏
+                </span>
+              </div>
+              <Button
+                size="sm"
+                className="shrink-0"
+                onClick={() => {
+                  // 开关合一的按钮：按当前状态决定是开还是关
+                  void (overlayState?.visible ? getApi().overlay.hide() : getApi().overlay.show())
+                }}
+              >
+                {overlayState?.visible ? '关闭悬浮窗' : '打开悬浮窗'}
+              </Button>
+            </div>
+
+            <div className="flex flex-col gap-2 border-t border-line pt-3">
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="overlay-opacity" className="text-sm text-ink">
+                  背景不透明度
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="tabular text-xs text-ink-muted">
+                    {Math.round(opacity * 100)}%
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-1.5"
+                    disabled={opacity === DEFAULT_OVERLAY_OPACITY}
+                    onClick={() => updateOpacity(DEFAULT_OVERLAY_OPACITY)}
+                  >
+                    恢复默认
+                  </Button>
+                </div>
+              </div>
+              <input
+                id="overlay-opacity"
+                type="range"
+                min={35}
+                max={100}
+                step={1}
+                value={Math.round(opacity * 100)}
+                onChange={(event) => updateOpacity(Number(event.target.value) / 100)}
+                aria-describedby="overlay-opacity-hint"
+                className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-panel-sunken accent-brand"
+              />
+              <p id="overlay-opacity-hint" className="text-xs text-ink-muted">
+                只影响卡片背景，文字始终保持清晰。默认 {Math.round(DEFAULT_OVERLAY_OPACITY * 100)}
+                %。
+              </p>
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-2 border-t border-line pt-4">
+            <h3 className="text-xs font-medium tracking-wide text-ink-muted">应用</h3>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm text-ink">点关闭按钮时</span>
+                <span className="text-xs text-ink-muted">
+                  缩到托盘时应用继续在后台运行，悬浮窗不受影响
+                </span>
+              </div>
+              <fieldset className="flex shrink-0 gap-0.5 rounded-md bg-panel-sunken p-0.5">
+                <legend className="sr-only">关闭行为</legend>
+                {CLOSE_ACTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={closeAction === option.value}
+                    onClick={() => setCloseAction(option.value)}
+                    className={cn(
+                      'rounded-sm px-2.5 py-1 text-xs transition-colors',
+                      closeAction === option.value
+                        ? 'bg-panel font-medium text-ink shadow-sm'
+                        : 'text-ink-muted hover:text-ink',
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </fieldset>
+            </div>
+
+            <div className="flex items-center justify-between gap-4 border-t border-line pt-3">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm text-ink">开机自动启动</span>
+                <span className="text-xs text-ink-muted">
+                  {launchSupported ? '开机后只显示悬浮窗和托盘，不弹主窗口' : '打包安装后可开启'}
+                </span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={launchAtLogin}
+                aria-label="开机自动启动"
+                disabled={!launchSupported}
+                onClick={() => {
+                  void toggleLaunchAtLogin()
+                }}
+                className={cn(
+                  'relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40',
+                  launchAtLogin ? 'bg-brand' : 'bg-line-strong',
+                )}
+              >
                 <span
                   className={cn(
-                    'rounded-sm border px-1 py-px text-[10px] leading-normal',
-                    overlayState?.visible
-                      ? 'border-brand/40 bg-brand-soft text-brand'
-                      : 'border-line-strong bg-panel-sunken text-ink-muted',
+                    'absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform',
+                    launchAtLogin ? 'translate-x-[22px]' : 'translate-x-0.5',
                   )}
-                >
-                  {overlayState?.visible ? '已显示' : '已关闭'}
-                </span>
-              </span>
-              <span className="text-xs text-ink-muted">
-                可拖到任意位置 · Ctrl+Shift+L 锁定穿透 · Ctrl+Shift+O 显示/隐藏
-              </span>
+                />
+              </button>
             </div>
-            <Button
-              size="sm"
-              className="shrink-0"
-              onClick={() => {
-                // 开关合一的按钮：按当前状态决定是开还是关
-                void (overlayState?.visible ? getApi().overlay.hide() : getApi().overlay.show())
-              }}
-            >
-              {overlayState?.visible ? '关闭悬浮窗' : '打开悬浮窗'}
-            </Button>
-          </div>
+          </section>
 
-          <div className="flex flex-col gap-2 border-t border-line pt-3">
-            <div className="flex items-center justify-between gap-3">
-              <label htmlFor="overlay-opacity" className="text-sm text-ink">
-                背景不透明度
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="tabular text-xs text-ink-muted">{Math.round(opacity * 100)}%</span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-1.5"
-                  disabled={opacity === DEFAULT_OVERLAY_OPACITY}
-                  onClick={() => updateOpacity(DEFAULT_OVERLAY_OPACITY)}
-                >
-                  恢复默认
-                </Button>
+          <section className="flex flex-col gap-2 border-t border-line pt-4">
+            <h3 className="text-xs font-medium tracking-wide text-ink-muted">快捷键</h3>
+            {SHORTCUTS.map((shortcut) => (
+              <div key={shortcut.keys} className="flex items-center justify-between gap-3">
+                <span className="text-sm text-ink">{shortcut.label}</span>
+                <kbd className="rounded border border-line-strong bg-panel-sunken px-1.5 py-0.5 font-mono text-[11px] text-ink-secondary">
+                  {shortcut.keys}
+                </kbd>
               </div>
-            </div>
-            <input
-              id="overlay-opacity"
-              type="range"
-              min={35}
-              max={100}
-              step={1}
-              value={Math.round(opacity * 100)}
-              onChange={(event) => updateOpacity(Number(event.target.value) / 100)}
-              aria-describedby="overlay-opacity-hint"
-              className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-panel-sunken accent-brand"
-            />
-            <p id="overlay-opacity-hint" className="text-xs text-ink-muted">
-              只影响卡片背景，文字始终保持清晰。默认 {Math.round(DEFAULT_OVERLAY_OPACITY * 100)}%。
+            ))}
+            <p className="text-xs text-ink-muted">
+              暂时不支持自定义：改成系统已占用的组合会导致快捷键失效且无法在应用内恢复。
             </p>
-          </div>
-        </section>
+          </section>
 
-        <section className="flex flex-col gap-2 border-t border-line pt-4">
-          <h3 className="text-xs font-medium tracking-wide text-ink-muted">应用</h3>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm text-ink">点关闭按钮时</span>
-              <span className="text-xs text-ink-muted">
-                缩到托盘时应用继续在后台运行，悬浮窗不受影响
+          <section className="flex flex-col gap-2 border-t border-line pt-4">
+            <h3 className="text-xs font-medium tracking-wide text-ink-muted">数据</h3>
+            <div className="flex flex-col gap-1">
+              <span className="text-sm text-ink">存储位置</span>
+              <span className="break-all text-xs text-ink-muted">{dbInfo?.path ?? '读取中…'}</span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm text-ink">结构版本</span>
+              <span className="tabular text-xs text-ink-muted">
+                {dbInfo ? `v${dbInfo.schemaVersion}` : '—'}
               </span>
             </div>
-            <fieldset className="flex shrink-0 gap-0.5 rounded-md bg-panel-sunken p-0.5">
-              <legend className="sr-only">关闭行为</legend>
-              {CLOSE_ACTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  aria-pressed={closeAction === option.value}
-                  onClick={() => setCloseAction(option.value)}
-                  className={cn(
-                    'rounded-sm px-2.5 py-1 text-xs transition-colors',
-                    closeAction === option.value
-                      ? 'bg-panel font-medium text-ink shadow-sm'
-                      : 'text-ink-muted hover:text-ink',
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </fieldset>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 border-t border-line pt-3">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm text-ink">开机自动启动</span>
+            <div className="flex items-center justify-between gap-3">
               <span className="text-xs text-ink-muted">
-                {launchSupported ? '开机后只显示悬浮窗和托盘，不弹主窗口' : '打包安装后可开启'}
+                备份：直接拷贝目录里的 qingqing.db（连同 -wal 文件）
               </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  void getApi().app.openDataDir()
+                }}
+              >
+                打开数据目录
+              </Button>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={launchAtLogin}
-              aria-label="开机自动启动"
-              disabled={!launchSupported}
-              onClick={() => {
-                void toggleLaunchAtLogin()
-              }}
-              className={cn(
-                'relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40',
-                launchAtLogin ? 'bg-brand' : 'bg-line-strong',
-              )}
-            >
-              <span
-                className={cn(
-                  'absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform',
-                  launchAtLogin ? 'translate-x-[22px]' : 'translate-x-0.5',
-                )}
-              />
-            </button>
-          </div>
-        </section>
+          </section>
 
-        <section className="flex flex-col gap-2 border-t border-line pt-4">
-          <h3 className="text-xs font-medium tracking-wide text-ink-muted">快捷键</h3>
-          {SHORTCUTS.map((shortcut) => (
-            <div key={shortcut.keys} className="flex items-center justify-between gap-3">
-              <span className="text-sm text-ink">{shortcut.label}</span>
-              <kbd className="rounded border border-line-strong bg-panel-sunken px-1.5 py-0.5 font-mono text-[11px] text-ink-secondary">
-                {shortcut.keys}
-              </kbd>
+          <section className="flex flex-col gap-2 border-t border-line pt-4">
+            <h3 className="text-xs font-medium tracking-wide text-ink-muted">关于</h3>
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm text-ink">{PRODUCT.name}</span>
+              <span className="tabular text-xs text-ink-muted">v{__APP_VERSION__}</span>
             </div>
-          ))}
-          <p className="text-xs text-ink-muted">
-            暂时不支持自定义：改成系统已占用的组合会导致快捷键失效且无法在应用内恢复。
-          </p>
-        </section>
+            <p className="text-xs text-ink-muted">{PRODUCT.tagline}</p>
+          </section>
 
-        <section className="flex flex-col gap-2 border-t border-line pt-4">
-          <h3 className="text-xs font-medium tracking-wide text-ink-muted">数据</h3>
-          <div className="flex flex-col gap-1">
-            <span className="text-sm text-ink">存储位置</span>
-            <span className="break-all text-xs text-ink-muted">{dbInfo?.path ?? '读取中…'}</span>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm text-ink">结构版本</span>
-            <span className="tabular text-xs text-ink-muted">
-              {dbInfo ? `v${dbInfo.schemaVersion}` : '—'}
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-ink-muted">
-              备份：直接拷贝目录里的 qingqing.db（连同 -wal 文件）
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                void getApi().app.openDataDir()
-              }}
-            >
-              打开数据目录
+          <div className="flex items-center justify-between gap-3 border-t border-line pt-4">
+            <span className="text-xs text-ink-muted">把主题、透明度、关闭行为恢复成初始值</span>
+            <Button size="sm" variant="ghost" onClick={() => setResetOpen(true)}>
+              恢复默认设置
             </Button>
           </div>
-        </section>
-
-        <section className="flex flex-col gap-2 border-t border-line pt-4">
-          <h3 className="text-xs font-medium tracking-wide text-ink-muted">关于</h3>
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm text-ink">{PRODUCT.name}</span>
-            <span className="tabular text-xs text-ink-muted">v{__APP_VERSION__}</span>
-          </div>
-          <p className="text-xs text-ink-muted">{PRODUCT.tagline}</p>
-        </section>
-
-        <div className="flex items-center justify-between gap-3 border-t border-line pt-4">
-          <span className="text-xs text-ink-muted">把主题、透明度、关闭行为恢复成初始值</span>
-          <Button size="sm" variant="ghost" onClick={() => setResetOpen(true)}>
-            恢复默认设置
-          </Button>
         </div>
-      </div>
 
-      <ConfirmDialog
-        open={resetOpen}
-        title="恢复默认设置"
-        description="主题、悬浮窗透明度、关闭行为会恢复成初始值。计划、任务和积分记录不受影响。"
-        confirmText="恢复"
-        onConfirm={() => {
-          void resetSettings()
-        }}
-        onCancel={() => setResetOpen(false)}
-      />
-    </dialog>
+        <ConfirmDialog
+          open={resetOpen}
+          title="恢复默认设置"
+          description="主题、悬浮窗透明度、关闭行为会恢复成初始值。计划、任务和积分记录不受影响。"
+          confirmText="恢复"
+          onConfirm={() => {
+            void resetSettings()
+          }}
+          onCancel={() => setResetOpen(false)}
+        />
+      </div>
+    </div>
   )
 }
