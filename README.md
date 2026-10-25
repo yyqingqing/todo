@@ -39,26 +39,46 @@ pnpm package     # 打 Windows 安装包 → dist/青青-<版本>-setup.exe
 pnpm package
 ```
 
-产物是 NSIS 安装包（`dist/青青-<版本>-setup.exe`），支持：
+产物是 NSIS 安装包（`dist/Qingqing-<版本>-setup.exe`），支持：
 - **自选安装位置**（不做一键安装）
 - 装到当前用户下，不需要管理员权限
-- 卸载时如果检测到数据，会询问是否备份到「文档\青青」
+- 卸载时提示数据仍在哪，不会静默删掉
 
-**数据跟着安装位置走**：打包后数据库在 `<安装目录>\data\qingqing.db`，
-而不是 `%APPDATA%`。装到 D 盘，数据就在 D 盘。
+**数据放在安装目录的上一级**：`<安装目录>\..\Qingqing-Data\qingqing.db`。
+装到 D 盘，数据就在 D 盘。
 
-唯一的例外：如果装到了 `Program Files` 这类普通用户不可写的位置，
-会自动回落到 `%APPDATA%\Qingqing`（启动时用探针文件实测写权限，不靠猜）。
+> 为什么不放在安装目录里：electron-builder 的卸载器会 `RMDir /r $INSTDIR`，
+> 而「覆盖安装」= 先卸载再装 —— 数据放里面意味着每次更新版本都会丢数据。
+> 试过在 `customUnInstall` 里把 data 挪走再挪回，覆盖安装流程里拿不到可靠时机，
+> 实测无效。放在同级目录，卸载器根本碰不到。
+
+唯一的例外：装到 `Program Files` 这类普通用户不可写的位置时，同级目录同样不可写，
+会回落到 `%APPDATA%\Qingqing`（启动时用探针文件实测写权限，不靠猜）。
 设置页的「存储位置」显示的是实际生效路径。
 
+**文件名一律用 ASCII**：exe 是 `Qingqing.exe`、安装包是 `Qingqing-*.exe`。
+原因有两个：GitHub release 附件会把中文文件名削掉；更要紧的是，
+`Run` 键里指向 `青青.exe` 时 Windows **开机不执行**（配置、编码、权限全正常）。
+
+**开机自启走两条路**：`HKCU\...\Run`（Electron 的 `setLoginItemSettings`）
+- 启动文件夹里的 `Qingqing.lnk`。两者独立，任一成功即可，
+  重复启动会被单实例锁挡掉。
+
+排查自启问题看 `<安装目录>\..\Qingqing-Data\startup.log`：
+每次启动追加一行（ISO 时间 + 参数）。有 `--hidden` 的记录 = 系统确实执行了；
+没有 = 压根没执行，去查安全软件的启动项拦截。
+
 网络受限时打包会在下载 NSIS 工具链时卡住（`connect ETIMEDOUT` 到 GitHub），
-用镜像：
+用镜像（npm 镜像对 electron 本体也适用）：
 
 ```powershell
 $env:ELECTRON_BUILDER_BINARIES_MIRROR = "https://npmmirror.com/mirrors/electron-builder-binaries/"
 $env:ELECTRON_MIRROR = "https://npmmirror.com/mirrors/electron/"
 pnpm exec electron-builder --win
 ```
+
+`dist` 被系统锁住（`app.asar` 报 EBUSY）时，可以换输出目录：
+`--config.directories.output=dist-v2`（`.gitignore` 已覆盖 `dist-*/`）。
 
 ## 目录约定
 
@@ -107,3 +127,14 @@ src/
 7. **打包时 `build/icon.png` 必须在 `files` 里**
    托盘图标是运行时用 `app.getAppPath()` 读的，漏了它安装版就没有托盘图标
    （dev 下正常，只有打包后才暴露）。
+
+8. **中文文件名会让开机自启静默失败**
+   `Run` 键里写 `"D:\...\青青.exe" --hidden` 时，注册表值、编码、权限、
+   任务管理器状态全部正常，手动执行同一条命令也能跑 —— 但 Windows 开机就是不执行。
+   换成 `Qingqing.exe` 后立刻正常。exe 名由 `win.executableName` 控制。
+
+9. **原生 `<dialog>` 在窗口隐藏后状态会坏掉**
+   `win.hide()` / `win.minimize()` 之后，Chromium 会把模态 dialog 降级成普通元素：
+   没有遮罩、位置跑到视口顶部、`showModal()` 抛 `InvalidStateError`，
+   表现为「弹窗关不掉」。设置页已改为自绘覆盖层；新写弹窗不要用原生 dialog
+   - `showModal()` 组合，除非确认不会遇到窗口隐藏。
