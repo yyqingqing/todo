@@ -1,10 +1,14 @@
 import type { DateString } from '@shared/types'
 import { useQuery } from '@tanstack/react-query'
 import { Check } from 'lucide-react'
+import { useState } from 'react'
+import Button from '../../components/Button'
 import Dialog from '../../components/Dialog'
 import { getApi } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { formatDateLabel } from '../../lib/date'
+import { fieldErrorClass, inputClass } from '../../lib/ui'
+import { useTodoMutations } from '../today/api'
 
 interface DayDetailDialogProps {
   date: DateString | null
@@ -14,8 +18,10 @@ interface DayDetailDialogProps {
 /**
  * 点日历格子看到的那一天的清单。
  *
- * 只读：日历是回顾视图，改状态应该回今日页做，
- * 否则"在日历里补勾了三天前的事"会让积分和顺延统计变得难以解释。
+ * 可以「添加」，不能「改完成状态」：
+ * - 添加是纯增量，不涉及历史归属，放在这里最自然（"我想在某天记一件事"）
+ * - 改状态必须回今日页做。否则在日历里补勾三天前的事时，
+ *   "这条算哪天完成的"就说不清了，积分归属和顺延统计都会失真
  */
 export default function DayDetailDialog({ date, onClose }: DayDetailDialogProps) {
   const { data, isLoading } = useQuery({
@@ -24,8 +30,24 @@ export default function DayDetailDialog({ date, onClose }: DayDetailDialogProps)
     enabled: date !== null,
   })
 
+  const { create } = useTodoMutations()
+  const [title, setTitle] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
   const todos = data ?? []
   const done = todos.filter((todo) => todo.status === 'done').length
+
+  const add = async (): Promise<void> => {
+    const trimmed = title.trim()
+    if (trimmed.length === 0 || !date) return
+    try {
+      setError(null)
+      await create.mutateAsync({ title: trimmed, scheduledDate: date })
+      setTitle('')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '添加失败')
+    }
+  }
 
   return (
     <Dialog
@@ -34,50 +56,80 @@ export default function DayDetailDialog({ date, onClose }: DayDetailDialogProps)
       title={date ? formatDateLabel(date) : ''}
       maxWidth="480px"
     >
+      {todos.length > 0 ? (
+        <p className="tabular -mb-1 text-xs text-ink-muted">
+          {done} / {todos.length} 项完成
+        </p>
+      ) : null}
+
       {isLoading ? (
         <p className="py-6 text-center text-sm text-ink-muted">加载中…</p>
       ) : todos.length === 0 ? (
-        <p className="py-6 text-center text-sm text-ink-muted">这一天没有安排。</p>
+        <p className="py-4 text-center text-sm text-ink-muted">这一天还没有安排。</p>
       ) : (
-        <>
-          <p className="tabular text-xs text-ink-muted">
-            {done} / {todos.length} 项完成
-          </p>
-          <ul className="-mx-1 flex max-h-[360px] flex-col overflow-y-auto">
-            {todos.map((todo) => {
-              const isDone = todo.status === 'done'
-              return (
-                <li key={todo.id} className="flex items-start gap-2.5 rounded-md px-1 py-2">
+        <ul className="-mx-1 flex max-h-[300px] flex-col overflow-y-auto">
+          {todos.map((todo) => {
+            const isDone = todo.status === 'done'
+            return (
+              <li key={todo.id} className="flex items-start gap-2.5 rounded-md px-1 py-2">
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'mt-0.5 flex size-[16px] shrink-0 items-center justify-center rounded border',
+                    isDone ? 'border-brand bg-brand text-on-brand' : 'border-line-strong bg-panel',
+                  )}
+                >
+                  {isDone ? <Check size={10} strokeWidth={3.2} /> : null}
+                </span>
+                <span className="flex min-w-0 flex-col gap-0.5">
                   <span
-                    aria-hidden="true"
                     className={cn(
-                      'mt-0.5 flex size-[16px] shrink-0 items-center justify-center rounded border',
-                      isDone
-                        ? 'border-brand bg-brand text-on-brand'
-                        : 'border-line-strong bg-panel',
+                      'text-sm break-words',
+                      isDone ? 'text-ink-subtle line-through' : 'text-ink',
                     )}
                   >
-                    {isDone ? <Check size={10} strokeWidth={3.2} /> : null}
+                    {todo.title}
                   </span>
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span
-                      className={cn(
-                        'text-sm break-words',
-                        isDone ? 'text-ink-subtle line-through' : 'text-ink',
-                      )}
-                    >
-                      {todo.title}
-                    </span>
-                    {todo.planTitle ? (
-                      <span className="text-xs text-ink-muted">{todo.planTitle}</span>
-                    ) : null}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        </>
+                  {todo.planTitle ? (
+                    <span className="text-xs text-ink-muted">{todo.planTitle}</span>
+                  ) : null}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
       )}
+
+      {/* 给这一天加一条临时事项。日期由格子决定，所以这里只输入标题 */}
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          void add()
+        }}
+        className="flex gap-2 border-t border-line pt-3"
+      >
+        <input
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder="给这一天加一条待办"
+          aria-label="新待办标题"
+          autoComplete="off"
+          className={cn(inputClass, 'min-w-0 flex-1')}
+        />
+        <Button
+          type="submit"
+          className="shrink-0"
+          disabled={title.trim().length === 0 || create.isPending}
+        >
+          添加
+        </Button>
+      </form>
+
+      {error ? (
+        <p role="alert" className={fieldErrorClass}>
+          {error}
+        </p>
+      ) : null}
     </Dialog>
   )
 }

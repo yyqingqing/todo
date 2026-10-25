@@ -73,9 +73,7 @@ export function saveTask(db: DatabaseSync, input: TaskInput): Task {
     )
     if (!plan) throw new Error('计划不存在')
     if (input.scheduledDate < plan.startDate || input.scheduledDate > plan.endDate) {
-      throw new Error(
-        `排期日必须在计划区间内（${plan.startDate} 至 ${plan.endDate}）`,
-      )
+      throw new Error(`排期日必须在计划区间内（${plan.startDate} 至 ${plan.endDate}）`)
     }
   }
 

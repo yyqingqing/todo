@@ -16,12 +16,7 @@ interface TaskListProps {
 }
 
 /** 计划下的任务。回车即加，是这个页面唯一需要"高频输入"的地方 */
-export default function TaskList({
-  planId,
-  planStartDate,
-  planEndDate,
-  tasks,
-}: TaskListProps) {
+export default function TaskList({ planId, planStartDate, planEndDate, tasks }: TaskListProps) {
   const { saveTask, removeTask } = usePlanMutations()
   const [title, setTitle] = useState('')
   /** 留空 = 待安排；选了日期会同时排进那天的今日清单 */
