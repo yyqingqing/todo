@@ -138,13 +138,27 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
-    if (open && !dialog.open) {
-      dialog.showModal()
-      // 聚焦容器而不是第一个按钮：程序化聚焦会被 Chromium 判成键盘焦点，
-      // 鼠标用户会看到按钮上一个突兀的焦点环。容器本身有边框，不需要额外轮廓。
-      dialog.focus()
+
+    try {
+      if (open && !dialog.open) {
+        dialog.showModal()
+        // 聚焦容器而不是第一个按钮：程序化聚焦会被 Chromium 判成键盘焦点，
+        // 鼠标用户会看到按钮上一个突兀的焦点环。容器本身有边框，不需要额外轮廓。
+        dialog.focus()
+      } else if (!open && dialog.open) {
+        dialog.close()
+      }
+    } catch {
+      // 极端情况下元素带着 open 属性但不在 modal 状态（窗口隐藏时 Chromium
+      // 会把模态降级），此时再 showModal 会抛 InvalidStateError。
+      // 先强行 close 收干净，避免留下一个"没有遮罩、位置靠上、点不透"的残影。
+      try {
+        dialog.close()
+      } catch {
+        // close 也失败就放弃，下一轮 open 变化时会再走一次
+      }
+      dialog.removeAttribute('open')
     }
-    if (!open && dialog.open) dialog.close()
   }, [open])
 
   const chooseTheme = (next: ThemeMode): void => {
