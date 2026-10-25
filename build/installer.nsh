@@ -11,9 +11,13 @@
 
 !macro customUnInstall
   ; ---- 1. 开机自启 ----
-  ; Electron 在 Windows 上用 app.getName() 作为注册表值名，本项目是 "Qingqing"
+  ; 实测发现：Windows 上 setLoginItemSettings 写的值名是 AppUserModelId，
+  ; 本项目是 com.qingqing.app（来自 electronApp.setAppUserModelId），
+  ; **不是** app.getName()。第一版只删 "Qingqing"，卸载后会残留一条
+  ; 指向已删除 exe 的启动项，每次开机 Windows 都会报错。
+  ; 三个名字都删，兼容不同版本与改名前的残留。
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "com.qingqing.app"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Qingqing"
-  ; 兼容改名前的残留
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "青青"
 
   ; ---- 2. 数据库（正常位置：安装目录的 data/） ----
