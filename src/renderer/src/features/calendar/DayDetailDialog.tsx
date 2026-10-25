@@ -6,7 +6,7 @@ import Button from '../../components/Button'
 import Dialog from '../../components/Dialog'
 import { getApi } from '../../lib/api'
 import { cn } from '../../lib/cn'
-import { formatDateLabel } from '../../lib/date'
+import { formatDateLabel, todayStr } from '../../lib/date'
 import { fieldErrorClass, inputClass } from '../../lib/ui'
 import { useTodoMutations } from '../today/api'
 
@@ -34,12 +34,18 @@ export default function DayDetailDialog({ date, onClose }: DayDetailDialogProps)
   const [title, setTitle] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  // 只允许给「未来」的日期添加：
+  // - 过去的日期补记没有意义，已经过去了
+  // - 今天的事务走今日页，保持单一入口
+  // YYYY-MM-DD 字符串比较等价于日期比较
+  const canAdd = date !== null && date > todayStr()
+
   const todos = data ?? []
   const done = todos.filter((todo) => todo.status === 'done').length
 
   const add = async (): Promise<void> => {
     const trimmed = title.trim()
-    if (trimmed.length === 0 || !date) return
+    if (trimmed.length === 0 || !date || !canAdd) return
     try {
       setError(null)
       await create.mutateAsync({ title: trimmed, scheduledDate: date })
@@ -100,30 +106,37 @@ export default function DayDetailDialog({ date, onClose }: DayDetailDialogProps)
         </ul>
       )}
 
-      {/* 给这一天加一条临时事项。日期由格子决定，所以这里只输入标题 */}
-      <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          void add()
-        }}
-        className="flex gap-2 border-t border-line pt-3"
-      >
-        <input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="给这一天加一条待办"
-          aria-label="新待办标题"
-          autoComplete="off"
-          className={cn(inputClass, 'min-w-0 flex-1')}
-        />
-        <Button
-          type="submit"
-          className="shrink-0"
-          disabled={title.trim().length === 0 || create.isPending}
+      {canAdd ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            void add()
+          }}
+          className="flex gap-2 border-t border-line pt-3"
         >
-          添加
-        </Button>
-      </form>
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="给这一天加一条待办"
+            aria-label="新待办标题"
+            autoComplete="off"
+            className={cn(inputClass, 'min-w-0 flex-1')}
+          />
+          <Button
+            type="submit"
+            className="shrink-0"
+            disabled={title.trim().length === 0 || create.isPending}
+          >
+            添加
+          </Button>
+        </form>
+      ) : (
+        <p className="border-t border-line pt-3 text-xs text-ink-muted">
+          {date === todayStr()
+            ? '今天的事项请在「今日」页添加。'
+            : '过去的日期不能补加待办。'}
+        </p>
+      )}
 
       {error ? (
         <p role="alert" className={fieldErrorClass}>
