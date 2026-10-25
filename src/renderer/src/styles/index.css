@@ -20,6 +20,7 @@
   --color-brand: var(--brand);
   --color-brand-hover: var(--brand-hover);
   --color-brand-soft: var(--brand-soft);
+  --color-on-brand: var(--on-brand);
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
   --color-warn: var(--warn);

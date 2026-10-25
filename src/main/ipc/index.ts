@@ -1,36 +1,155 @@
 import { IPC } from '@shared/ipc-contract'
+import type { CategoryInput, PlanInput, TaskInput } from '@shared/types'
 import { ipcMain } from 'electron'
+import { broadcastDataChanged } from '../broadcast'
 import { getDatabaseInfo, getDb } from '../db/connection'
-import { listPlanTree } from '../db/repo/plan.repo'
+import { listCategories, removeCategory, saveCategory } from '../db/repo/category.repo'
+import { getPlanDetail, listPlanTree, removePlan, savePlan } from '../db/repo/plan.repo'
 import { allSettings, setSetting } from '../db/repo/setting.repo'
+import { removeTask, reorderTasks, saveTask } from '../db/repo/task.repo'
 
 /**
  * 注册所有 IPC handler。
  *
- * 约定：handler 只做「参数校验 → 调用 repo / service」，不写业务逻辑。
- * 业务规则放 shared/domain（纯函数，可单测），事务边界放 service 层。
+ * 约定：handler 只做「参数校验 → 调用 repo → 广播」，不写业务规则。
+ * 业务规则放 shared/domain（纯函数，可单测），事务边界等出现跨表写入再抽 service 层。
  */
 
-/**
- * IPC 入参来自渲染进程，虽然是我们自己的代码，但要按不可信数据处理。
- * 一个类型错误就足以把整条写操作变成静默失败，校验成本极低。
- */
-function assertString(value: unknown, field: string): asserts value is string {
-  if (typeof value !== 'string') {
-    throw new Error(`IPC 参数校验失败：${field} 必须是字符串`)
+/* ---------------- 入参校验 ---------------- */
+/* IPC 入参来自渲染进程，按不可信数据处理。一个类型错误就足以让写操作静默失败。 */
+
+function asRecord(value: unknown, field: string): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error(`参数校验失败：${field} 必须是对象`)
+  }
+  return value as Record<string, unknown>
+}
+
+function requireString(value: unknown, field: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`参数校验失败：${field} 必须是非空字符串`)
+  }
+  return value
+}
+
+function optionalId(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined
+  if (typeof value !== 'string') throw new Error('参数校验失败：id 必须是字符串')
+  return value
+}
+
+function nullableString(value: unknown, field: string): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string') throw new Error(`参数校验失败：${field} 必须是字符串或 null`)
+  return value
+}
+
+function nullableNumber(value: unknown, field: string): number | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`参数校验失败：${field} 必须是数字或 null`)
+  }
+  return value
+}
+
+/** 只接受本地日历日格式，防止 '2026-13-45' 这种写进库后再也查不出来 */
+function requireDate(value: unknown, field: string): string {
+  const text = requireString(value, field)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    throw new Error(`参数校验失败：${field} 必须是 YYYY-MM-DD 格式`)
+  }
+  return text
+}
+
+function parseCategoryInput(raw: unknown): CategoryInput {
+  const record = asRecord(raw, 'category')
+  return {
+    id: optionalId(record['id']),
+    name: requireString(record['name'], 'name'),
+    color: requireString(record['color'], 'color'),
   }
 }
+
+function parsePlanInput(raw: unknown): PlanInput {
+  const record = asRecord(raw, 'plan')
+  const parentId = nullableString(record['parentId'], 'parentId')
+  return {
+    id: optionalId(record['id']),
+    parentId,
+    categoryId: nullableString(record['categoryId'], 'categoryId'),
+    title: requireString(record['title'], 'title'),
+    note: nullableString(record['note'], 'note'),
+    startDate: requireDate(record['startDate'], 'startDate'),
+    endDate: requireDate(record['endDate'], 'endDate'),
+  }
+}
+
+function parseTaskInput(raw: unknown): TaskInput {
+  const record = asRecord(raw, 'task')
+  return {
+    id: optionalId(record['id']),
+    planId: requireString(record['planId'], 'planId'),
+    title: requireString(record['title'], 'title'),
+    note: nullableString(record['note'], 'note'),
+    estMinutes: nullableNumber(record['estMinutes'], 'estMinutes'),
+  }
+}
+
+function parseStringArray(value: unknown, field: string): string[] {
+  if (!Array.isArray(value)) throw new Error(`参数校验失败：${field} 必须是数组`)
+  return value.map((item, index) => requireString(item, `${field}[${index}]`))
+}
+
+/* ---------------- handler 注册 ---------------- */
 
 export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.appInfo, () => getDatabaseInfo())
 
+  ipcMain.handle(IPC.categoryList, () => listCategories(getDb()))
+  ipcMain.handle(IPC.categorySave, (_event, raw: unknown) => {
+    const category = saveCategory(getDb(), parseCategoryInput(raw))
+    broadcastDataChanged('category')
+    return category
+  })
+  ipcMain.handle(IPC.categoryRemove, (_event, id: unknown) => {
+    removeCategory(getDb(), requireString(id, 'id'))
+    broadcastDataChanged('category')
+  })
+
   ipcMain.handle(IPC.planTree, () => listPlanTree(getDb()))
+  ipcMain.handle(IPC.planDetail, (_event, id: unknown) =>
+    getPlanDetail(getDb(), requireString(id, 'id')),
+  )
+  ipcMain.handle(IPC.planSave, (_event, raw: unknown) => {
+    const plan = savePlan(getDb(), parsePlanInput(raw))
+    broadcastDataChanged('plan')
+    return plan
+  })
+  ipcMain.handle(IPC.planRemove, (_event, id: unknown) => {
+    removePlan(getDb(), requireString(id, 'id'))
+    broadcastDataChanged('plan')
+  })
+
+  ipcMain.handle(IPC.taskSave, (_event, raw: unknown) => {
+    const task = saveTask(getDb(), parseTaskInput(raw))
+    broadcastDataChanged('task')
+    return task
+  })
+  ipcMain.handle(IPC.taskRemove, (_event, id: unknown) => {
+    removeTask(getDb(), requireString(id, 'id'))
+    broadcastDataChanged('task')
+  })
+  ipcMain.handle(IPC.taskReorder, (_event, planId: unknown, orderedIds: unknown) => {
+    reorderTasks(
+      getDb(),
+      requireString(planId, 'planId'),
+      parseStringArray(orderedIds, 'orderedIds'),
+    )
+    broadcastDataChanged('task')
+  })
 
   ipcMain.handle(IPC.settingAll, () => allSettings(getDb()))
-
   ipcMain.handle(IPC.settingSet, (_event, key: unknown, value: unknown) => {
-    assertString(key, 'key')
-    assertString(value, 'value')
-    setSetting(getDb(), key, value)
+    setSetting(getDb(), requireString(key, 'key'), requireString(value, 'value'))
   })
 }

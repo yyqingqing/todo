@@ -1,6 +1,6 @@
 import type { Api } from '@shared/ipc-contract'
 import { IPC } from '@shared/ipc-contract'
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, type IpcRendererEvent, ipcRenderer } from 'electron'
 
 /**
  * 渲染进程唯一能触碰主进程的入口。
@@ -12,12 +12,41 @@ const api: Api = {
   app: {
     info: () => ipcRenderer.invoke(IPC.appInfo),
   },
+
+  category: {
+    list: () => ipcRenderer.invoke(IPC.categoryList),
+    save: (input) => ipcRenderer.invoke(IPC.categorySave, input),
+    remove: (id) => ipcRenderer.invoke(IPC.categoryRemove, id),
+  },
+
   plan: {
     tree: () => ipcRenderer.invoke(IPC.planTree),
+    detail: (id) => ipcRenderer.invoke(IPC.planDetail, id),
+    save: (input) => ipcRenderer.invoke(IPC.planSave, input),
+    remove: (id) => ipcRenderer.invoke(IPC.planRemove, id),
   },
+
+  task: {
+    save: (input) => ipcRenderer.invoke(IPC.taskSave, input),
+    remove: (id) => ipcRenderer.invoke(IPC.taskRemove, id),
+    reorder: (planId, orderedIds) => ipcRenderer.invoke(IPC.taskReorder, planId, orderedIds),
+  },
+
   setting: {
     all: () => ipcRenderer.invoke(IPC.settingAll),
     set: (key, value) => ipcRenderer.invoke(IPC.settingSet, key, value),
+  },
+
+  onDataChanged: (callback) => {
+    const handler = (_event: IpcRendererEvent, entity: string): void => {
+      callback(entity)
+    }
+    ipcRenderer.on(IPC.dataChanged, handler)
+
+    // 必须返回解绑函数：渲染进程重复挂载（HMR、StrictMode）时不清理会累积监听器
+    return () => {
+      ipcRenderer.removeListener(IPC.dataChanged, handler)
+    }
   },
 }
 

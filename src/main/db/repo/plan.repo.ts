@@ -1,6 +1,9 @@
+import { randomUUID } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
-import type { Plan, PlanNode, PlanStats } from '@shared/types'
-import { all } from '../sql'
+import type { Plan, PlanDetail, PlanInput, PlanNode, PlanStats } from '@shared/types'
+import { all, get } from '../sql'
+import { getCategory } from './category.repo'
+import { listTasksByPlan } from './task.repo'
 
 interface PlanRow {
   id: string
@@ -94,4 +97,138 @@ function loadStatsByPlan(db: DatabaseSync): Map<string, PlanStats> {
     map.set(row.planId, { taskTotal: row.taskTotal, taskDone: row.taskDone })
   }
   return map
+}
+
+/** 单个计划（不含统计），用于详情页头部与表单回填 */
+export function getPlan(db: DatabaseSync, id: string): Plan | null {
+  return get<Plan>(db, `${PLAN_SELECT} WHERE id = ?`, [id]) ?? null
+}
+
+function findNode(nodes: readonly PlanNode[], id: string): PlanNode | null {
+  for (const node of nodes) {
+    if (node.id === id) return node
+    const found = findNode(node.children, id)
+    if (found) return found
+  }
+  return null
+}
+
+/**
+ * 计划详情。
+ * 复用 listPlanTree 的统计逻辑：stats 必须包含所有后代，
+ * 另写一套聚合必然算出第二个口径。
+ */
+export function getPlanDetail(db: DatabaseSync, id: string): PlanDetail | null {
+  const node = findNode(listPlanTree(db), id)
+  if (!node) return null
+
+  return {
+    plan: {
+      id: node.id,
+      parentId: node.parentId,
+      categoryId: node.categoryId,
+      title: node.title,
+      note: node.note,
+      startDate: node.startDate,
+      endDate: node.endDate,
+      status: node.status,
+      sortOrder: node.sortOrder,
+      completedAt: node.completedAt,
+      createdAt: node.createdAt,
+      updatedAt: node.updatedAt,
+    },
+    category: node.categoryId ? getCategory(db, node.categoryId) : null,
+    stats: node.stats,
+    tasks: listTasksByPlan(db, id),
+    childPlans: node.children,
+  }
+}
+
+/** 沿 parentId 向上走，判断把 parentId 设成 candidate 会不会成环 */
+function wouldCreateCycle(db: DatabaseSync, id: string, candidateParentId: string | null): boolean {
+  let cursor = candidateParentId
+  const seen = new Set<string>()
+
+  while (cursor) {
+    if (cursor === id) return true
+    if (seen.has(cursor)) return true
+    seen.add(cursor)
+    cursor =
+      get<{ parentId: string | null }>(db, 'SELECT parent_id AS parentId FROM plan WHERE id = ?', [
+        cursor,
+      ])?.parentId ?? null
+  }
+
+  return false
+}
+
+export function savePlan(db: DatabaseSync, input: PlanInput): Plan {
+  const title = input.title.trim()
+  if (title.length === 0) throw new Error('计划标题不能为空')
+  if (input.startDate > input.endDate) throw new Error('结束日期不能早于开始日期')
+
+  const now = new Date().toISOString()
+  const note = input.note?.trim() ?? null
+
+  if (input.id) {
+    if (wouldCreateCycle(db, input.id, input.parentId)) {
+      throw new Error('不能把计划移动到它自己或它的子计划下面')
+    }
+    if (!getPlan(db, input.id)) throw new Error('计划不存在')
+
+    db.prepare(
+      `UPDATE plan
+       SET parent_id = ?, category_id = ?, title = ?, note = ?,
+           start_date = ?, end_date = ?, updated_at = ?
+       WHERE id = ?`,
+    ).run(
+      input.parentId,
+      input.categoryId,
+      title,
+      note,
+      input.startDate,
+      input.endDate,
+      now,
+      input.id,
+    )
+
+    return getPlan(db, input.id) as Plan
+  }
+
+  const id = randomUUID()
+  // parent_id 可能为 NULL，用 IS 而不是 = 才能匹配到顶级计划
+  const nextOrder =
+    get<{ next: number }>(
+      db,
+      'SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM plan WHERE parent_id IS ?',
+      [input.parentId],
+    )?.next ?? 0
+
+  db.prepare(
+    `INSERT INTO plan
+       (id, parent_id, category_id, title, note, start_date, end_date, status, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
+  ).run(
+    id,
+    input.parentId,
+    input.categoryId,
+    title,
+    note,
+    input.startDate,
+    input.endDate,
+    nextOrder,
+    now,
+    now,
+  )
+
+  return getPlan(db, id) as Plan
+}
+
+/**
+ * 删除计划：子计划与任务靠外键 CASCADE 一起删除。
+ * 已排期的 todo_item 会因 task 删除而 task_id 置 NULL，变成孤儿记录 —— 这是有意的：
+ * 历史清单不该因为删计划就消失。
+ */
+export function removePlan(db: DatabaseSync, id: string): void {
+  db.prepare('DELETE FROM plan WHERE id = ?').run(id)
 }

@@ -31,3 +31,21 @@ export function todayLabel(): string {
 export function isToday(dateStr: string): boolean {
   return dateStr === todayStr()
 }
+
+/** 按本地日历日加减，跨月跨年交给 Date 处理 */
+export function addDays(dateStr: string, days: number): string {
+  const [year = 1970, month = 1, day = 1] = dateStr.split('-').map(Number)
+  const date = new Date(year, month - 1, day + days)
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+}
+
+/** "2026-10-25" -> "10月25日"；不是今年时带上年份 */
+export function formatDateLabel(dateStr: string): string {
+  const [year = 1970, month = 1, day = 1] = dateStr.split('-').map(Number)
+  return year === new Date().getFullYear() ? `${month}月${day}日` : `${year}年${month}月${day}日`
+}
+
+/** 计划区间的展示文案："10月25日 – 11月24日" */
+export function formatRange(startDate: string, endDate: string): string {
+  return `${formatDateLabel(startDate)} – ${formatDateLabel(endDate)}`
+}

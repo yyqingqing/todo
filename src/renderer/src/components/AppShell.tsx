@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import SettingsDialog from '../features/settings/SettingsDialog'
 import { cn } from '../lib/cn'
+import { useDataSync } from '../lib/data-sync'
 import BrandMark from './BrandMark'
 
 const NAV_ITEMS = [
@@ -16,6 +17,9 @@ const NAV_ITEMS = [
 export default function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const location = useLocation()
+
+  // 订阅主进程的数据变更广播，让两个窗口的数据保持一致
+  useDataSync()
 
   return (
     <div className="flex h-full min-h-0 bg-canvas">

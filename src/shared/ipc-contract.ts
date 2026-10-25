@@ -1,4 +1,14 @@
-import type { DatabaseInfo, PlanNode } from './types'
+import type {
+  Category,
+  CategoryInput,
+  DatabaseInfo,
+  Plan,
+  PlanDetail,
+  PlanInput,
+  PlanNode,
+  Task,
+  TaskInput,
+} from './types'
 
 /**
  * 主进程与渲染进程之间的唯一契约。
@@ -13,14 +23,40 @@ export interface Api {
   app: {
     info(): Promise<DatabaseInfo>
   }
+
+  category: {
+    list(): Promise<Category[]>
+    save(input: CategoryInput): Promise<Category>
+    remove(id: string): Promise<void>
+  }
+
   plan: {
     /** 完整计划树，含每个节点的任务汇总。空库返回 [] */
     tree(): Promise<PlanNode[]>
+    detail(id: string): Promise<PlanDetail | null>
+    /** id 存在即更新，不存在即新建 */
+    save(input: PlanInput): Promise<Plan>
+    remove(id: string): Promise<void>
   }
+
+  task: {
+    save(input: TaskInput): Promise<Task>
+    remove(id: string): Promise<void>
+    /** 按给定顺序重写 sort_order，用于同级排序 */
+    reorder(planId: string, orderedIds: string[]): Promise<void>
+  }
+
   setting: {
     all(): Promise<Record<string, string>>
     set(key: string, value: string): Promise<void>
   }
+
+  /**
+   * 订阅数据变更。主进程在每次写操作完成后广播实体名，
+   * 渲染进程据此精确失效对应的 query。
+   * 返回取消订阅函数 —— 调用方必须在卸载时清理，否则重复挂载会累积监听器。
+   */
+  onDataChanged(callback: (entity: string) => void): () => void
 }
 
 /**
@@ -29,7 +65,26 @@ export interface Api {
  */
 export const IPC = {
   appInfo: 'app:info',
+
+  categoryList: 'category:list',
+  categorySave: 'category:save',
+  categoryRemove: 'category:remove',
+
   planTree: 'plan:tree',
+  planDetail: 'plan:detail',
+  planSave: 'plan:save',
+  planRemove: 'plan:remove',
+
+  taskSave: 'task:save',
+  taskRemove: 'task:remove',
+  taskReorder: 'task:reorder',
+
   settingAll: 'setting:all',
   settingSet: 'setting:set',
+
+  /** 主 → 渲染 的单向广播 */
+  dataChanged: 'data:changed',
 } as const
+
+/** 广播的实体名。渲染进程用它决定失效哪些 query */
+export type DataEntity = 'plan' | 'task' | 'category' | 'todo' | 'score'

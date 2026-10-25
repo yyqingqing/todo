@@ -90,3 +90,46 @@ export interface DatabaseInfo {
   schemaVersion: number
   sizeBytes: number
 }
+
+/* ------------------------------------------------------------------ */
+/* 写操作的入参：id 存在即更新，不存在即新建（upsert）                  */
+/* ------------------------------------------------------------------ */
+
+export interface CategoryInput {
+  id?: string
+  name: string
+  /** token 名，如 'cat-1' */
+  color: string
+}
+
+export interface PlanInput {
+  id?: string
+  parentId: string | null
+  categoryId: string | null
+  title: string
+  note: string | null
+  startDate: DateString
+  endDate: DateString
+}
+
+export interface TaskInput {
+  id?: string
+  planId: string
+  title: string
+  note?: string | null
+  estMinutes?: number | null
+}
+
+/** 带完成状态的任务。done 来自 todo_item，task 自身没有完成态 */
+export interface TaskWithState extends Task {
+  done: boolean
+}
+
+/** 计划详情：一次 IPC 拿全，避免前端瀑布式请求 */
+export interface PlanDetail {
+  plan: Plan
+  category: Category | null
+  stats: PlanStats
+  tasks: TaskWithState[]
+  childPlans: PlanNode[]
+}
