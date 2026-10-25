@@ -1,0 +1,113 @@
+/*
+ * 设计 token —— 唯一允许出现裸色值的文件。
+ * 组件里禁止写 #hex / rgb()，只能用 index.css 里 @theme inline 映射出的语义类名
+ * （如 bg-panel / text-ink-muted / border-line）。
+ *
+ * 体系：Preset B（工具型）。4pt 网格、描边优先于阴影、正文 14px。
+ * 特化：今日页与悬浮窗的 row 高度放大到 --row-h-comfortable，因为那是每天盯最久的两处。
+ */
+
+:root {
+  /* ---------- 中性色阶 ---------- */
+  --gray-0: #ffffff;
+  --gray-50: #f7f8fa;
+  --gray-100: #f0f2f5;
+  --gray-200: #e5e7eb;
+  --gray-300: #d0d5dd;
+  --gray-400: #98a2b3;
+  --gray-500: #667085;
+  --gray-600: #475467;
+  --gray-700: #344054;
+  --gray-800: #1d2939;
+  --gray-900: #101828;
+
+  /* ---------- 品牌色（靛蓝：工具感强，且与逾期红/完成绿区分度足够） ---------- */
+  --brand-50: #eef2ff;
+  --brand-100: #e0e7ff;
+  --brand-300: #a5b4fc;
+  --brand-500: #6366f1;
+  --brand-600: #4f46e5;
+  --brand-700: #4338ca;
+
+  /* ---------- 状态色（前景 + 浅底，必须成对使用，禁止只靠颜色承载信息） ---------- */
+  --ok: #12b76a;
+  --ok-soft: #ecfdf3;
+  --warn: #f79009;
+  --warn-soft: #fffaeb;
+  --danger: #f04438;
+  --danger-soft: #fef3f2;
+  --info: #2e90fa;
+  --info-soft: #eff8ff;
+
+  /* ---------- 分类色（计划/分类标识，6 个足够；色盲用户靠图标+文字区分） ---------- */
+  --cat-1: #6366f1;
+  --cat-2: #12b76a;
+  --cat-3: #f79009;
+  --cat-4: #ee46bc;
+  --cat-5: #0ba5ec;
+  --cat-6: #7a5af8;
+
+  /* ---------- 语义层：浅色（组件只用这一层） ---------- */
+  --canvas: var(--gray-50);
+  --panel: var(--gray-0);
+  --panel-hover: var(--gray-100);
+  --panel-sunken: var(--gray-100);
+  --line: var(--gray-200);
+  --line-strong: var(--gray-300);
+  --ink: var(--gray-900);
+  --ink-secondary: var(--gray-600);
+  --ink-muted: var(--gray-500);
+  --ink-subtle: var(--gray-400);
+  --brand: var(--brand-600);
+  --brand-hover: var(--brand-700);
+  --brand-soft: var(--brand-50);
+
+  /* ---------- 字体 ---------- */
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-mono: "Cascadia Code", "JetBrains Mono", Consolas, ui-monospace, monospace;
+
+  /* ---------- 密度（Preset B） ---------- */
+  --row-h: 40px;
+  --row-h-compact: 32px;
+  --row-h-comfortable: 48px;
+  --control-h: 32px;
+  --sidebar-w: 224px;
+  --sidebar-w-collapsed: 64px;
+  --header-h: 56px;
+
+  /* ---------- 悬浮窗 ---------- */
+  --overlay-w: 380px;
+  --overlay-radius: 12px;
+  --overlay-bg: rgb(255 255 255 / 0.82);
+  --overlay-line: rgb(16 24 40 / 0.08);
+}
+
+/*
+ * 暗色：不是简单反色，是重新定的一套中性阶（深底不要纯黑，否则 OLED 上有拖影）。
+ * 由 main.tsx 在启动时写入 <html data-theme="dark">，切换时无闪烁。
+ */
+[data-theme="dark"] {
+  --canvas: #0f1319;
+  --panel: #161b23;
+  --panel-hover: #1d232c;
+  --panel-sunken: #0b0e13;
+  --line: #262d38;
+  --line-strong: #333b47;
+  --ink: #e8ebf0;
+  --ink-secondary: #a3acba;
+  --ink-muted: #7c8696;
+  --ink-subtle: #5c6675;
+  --brand: var(--brand-500);
+  --brand-hover: var(--brand-300);
+  --brand-soft: #1e1b4b;
+
+  --ok-soft: #052e1c;
+  --warn-soft: #2e1c02;
+  --danger-soft: #300c0a;
+  --info-soft: #08243d;
+
+  --overlay-bg: rgb(15 19 25 / 0.78);
+  --overlay-line: rgb(255 255 255 / 0.1);
+}
