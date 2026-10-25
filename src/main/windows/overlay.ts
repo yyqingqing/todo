@@ -30,11 +30,28 @@ export function getOverlayState(): OverlayState {
   return { visible: userVisible, locked, collapsed }
 }
 
+type StateListener = (state: OverlayState) => void
+
+const stateListeners = new Set<StateListener>()
+
+/**
+ * 订阅悬浮窗状态变化（主进程内部用，比如托盘菜单需要跟着状态重建）。
+ * 返回解绑函数。
+ */
+export function onOverlayStateChange(listener: StateListener): () => void {
+  stateListeners.add(listener)
+  return () => {
+    stateListeners.delete(listener)
+  }
+}
+
 function notifyState(): void {
   const state = getOverlayState()
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send(IPC.overlayState, state)
   }
+  // 托盘菜单是静态的，状态变了必须重建，否则菜单里永远显示"隐藏悬浮窗"
+  for (const listener of stateListeners) listener(state)
 }
 
 function defaultBounds(): StoredBounds {

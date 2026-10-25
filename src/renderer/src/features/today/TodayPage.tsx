@@ -1,12 +1,14 @@
-import { Layers, ListChecks } from 'lucide-react'
+import { Layers, ListChecks, Pin } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import Button from '../../components/Button'
 import EmptyState from '../../components/EmptyState'
 import ErrorState from '../../components/ErrorState'
 import PageHeader from '../../components/PageHeader'
 import ProgressBar from '../../components/ProgressBar'
+import { getApi } from '../../lib/api'
 import { formatDateLabel, todayLabel } from '../../lib/date'
 import { fieldErrorClass, inputClass } from '../../lib/ui'
+import { useOverlayState } from '../../lib/use-settings'
 import { useToday } from '../../lib/use-today'
 import { useTodoMutations, useTodos } from './api'
 import PickTaskDialog from './PickTaskDialog'
@@ -19,6 +21,7 @@ export default function TodayPage() {
   const { today } = useToday()
   const { data, isLoading, error, refetch } = useTodos(today)
   const { create, toggle, remove } = useTodoMutations()
+  const { data: overlayState } = useOverlayState()
 
   const [title, setTitle] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
@@ -58,10 +61,23 @@ export default function TodayPage() {
         title="今日"
         meta={todayLabel()}
         actions={
-          <Button size="sm" variant="ghost" onClick={() => setPickOpen(true)}>
-            <Layers size={14} aria-hidden="true" />
-            从计划添加
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                if (overlayState?.visible) void getApi().overlay.hide()
+                else void getApi().overlay.show()
+              }}
+            >
+              <Pin size={14} aria-hidden="true" />
+              {overlayState?.visible ? '已钉在桌面' : '钉在桌面'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setPickOpen(true)}>
+              <Layers size={14} aria-hidden="true" />
+              从计划添加
+            </Button>
+          </>
         }
       />
 

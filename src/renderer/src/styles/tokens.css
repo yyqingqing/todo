@@ -85,7 +85,10 @@
   /* ---------- 悬浮窗 ---------- */
   --overlay-w: 380px;
   --overlay-radius: 12px;
-  --overlay-bg: rgb(255 255 255 / 0.82);
+  /* 拆成 rgb 通道 + 透明度：运行时只需改 --overlay-opacity，不用在 JS 里拼颜色字符串 */
+  --overlay-rgb: 255 255 255;
+  --overlay-opacity: 0.82;
+  --overlay-bg: rgb(var(--overlay-rgb) / var(--overlay-opacity));
   --overlay-line: rgb(16 24 40 / 0.08);
 
   /* ---------- 遮罩（弹窗背景） ---------- */
@@ -116,7 +119,7 @@
   --danger-soft: #300c0a;
   --info-soft: #08243d;
 
-  --overlay-bg: rgb(15 19 25 / 0.78);
+  --overlay-rgb: 15 19 25;
   --overlay-line: rgb(255 255 255 / 0.1);
 
   --scrim: rgb(0 0 0 / 0.6);

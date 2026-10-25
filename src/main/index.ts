@@ -2,8 +2,10 @@ import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { PRODUCT } from '@shared/product'
 import { app, BrowserWindow, globalShortcut, nativeTheme, session, shell } from 'electron'
-import { closeDatabase, openDatabase } from './db/connection'
+import { closeDatabase, getDb, openDatabase } from './db/connection'
+import { allSettings } from './db/repo/setting.repo'
 import { registerIpcHandlers } from './ipc'
+import { createTray, destroyTray } from './tray'
 import {
   disposeOverlay,
   getOverlayState,
@@ -19,6 +21,27 @@ import {
 const WINDOW_BG = { light: '#f7f8fa', dark: '#0f1319' } as const
 
 let mainWindow: BrowserWindow | null = null
+/** 正在退出：此时不再拦截窗口关闭，否则会陷入「关不掉」的死循环 */
+let isQuitting = false
+
+/** 关闭按钮的行为。读不到设置时按「缩到托盘」处理，这是更安全的默认值（不会误退） */
+function readCloseAction(): 'tray' | 'quit' {
+  try {
+    return allSettings(getDb())['app.closeAction'] === 'quit' ? 'quit' : 'tray'
+  } catch {
+    return 'tray'
+  }
+}
+
+function showMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createMainWindow()
+    return
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
 
 function createMainWindow(): void {
   const win = new BrowserWindow({
@@ -41,6 +64,22 @@ function createMainWindow(): void {
 
   mainWindow = win
   win.on('ready-to-show', () => win.show())
+
+  // 关闭行为：默认缩到托盘继续跑（悬浮窗还在用），用户可以在设置里改成直接退出
+  win.on('close', (event) => {
+    if (isQuitting) return
+
+    if (readCloseAction() === 'tray') {
+      event.preventDefault()
+      win.hide()
+      return
+    }
+
+    // 直接退出模式：连悬浮窗一起关掉，否则窗口关完了应用还挂在后台
+    isQuitting = true
+    app.quit()
+  })
+
   win.on('closed', () => {
     mainWindow = null
   })
@@ -79,7 +118,7 @@ function harden(): void {
   })
   session.defaultSession.setPermissionCheckHandler(() => false)
 
-  // 所有 webContents（含将来的悬浮窗）共用一套外链策略，避免逐个窗口设置时漏掉
+  // 所有 webContents（含悬浮窗）共用一套外链策略，避免逐个窗口设置时漏掉
   app.on('web-contents-created', (_event, contents) => {
     contents.setWindowOpenHandler(({ url }) => {
       if (url.startsWith('https://')) void shell.openExternal(url)
@@ -97,9 +136,7 @@ if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   app.on('second-instance', () => {
-    if (!mainWindow) return
-    if (mainWindow.isMinimized()) mainWindow.restore()
-    mainWindow.focus()
+    showMainWindow()
   })
 
   void app.whenReady().then(() => {
@@ -117,8 +154,16 @@ if (!app.requestSingleInstanceLock()) {
 
     createMainWindow()
 
-    // 悬浮窗锁定后自己点不到自己的按钮，必须有窗口外的入口。
-    // 快捷键是成本最低的那个；阶段 8 的托盘菜单会是第二个。
+    createTray({
+      showMain: showMainWindow,
+      quit: () => {
+        isQuitting = true
+        app.quit()
+      },
+    })
+
+    // 悬浮窗锁定后自己点不到自己的按钮，必须有窗口外的入口：
+    // 快捷键是最快的，托盘菜单是"记不住快捷键时"的兜底。
     globalShortcut.register('CommandOrControl+Shift+L', () => {
       toggleOverlayLocked()
     })
@@ -132,13 +177,18 @@ if (!app.requestSingleInstanceLock()) {
     })
   })
 
+  app.on('before-quit', () => {
+    isQuitting = true
+  })
+
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()
   })
 
-  // 退出前关闭连接：确保 WAL 落盘、文件句柄释放
+  // 退出前清理：定时器、托盘、快捷键、数据库连接
   app.on('will-quit', () => {
     disposeOverlay()
+    destroyTray()
     globalShortcut.unregisterAll()
     closeDatabase()
   })

@@ -138,4 +138,4 @@ export const IPC = {
 } as const
 
 /** 广播的实体名。渲染进程用它决定失效哪些 query */
-export type DataEntity = 'plan' | 'task' | 'category' | 'todo' | 'score'
+export type DataEntity = 'plan' | 'task' | 'category' | 'todo' | 'score' | 'setting'

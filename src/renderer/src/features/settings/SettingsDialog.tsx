@@ -6,11 +6,17 @@ import Button from '../../components/Button'
 import { getApi } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { applyTheme, readThemeMode, type ThemeMode } from '../../lib/theme'
+import { DEFAULT_OVERLAY_OPACITY, readOpacity, useSettings } from '../../lib/use-settings'
 
 const THEME_OPTIONS: ReadonlyArray<{ value: ThemeMode; label: string }> = [
   { value: 'system', label: '跟随系统' },
   { value: 'light', label: '浅色' },
   { value: 'dark', label: '深色' },
+]
+
+const CLOSE_ACTIONS: ReadonlyArray<{ value: 'tray' | 'quit'; label: string }> = [
+  { value: 'tray', label: '缩到托盘' },
+  { value: 'quit', label: '直接退出' },
 ]
 
 interface SettingsDialogProps {
@@ -21,6 +27,38 @@ interface SettingsDialogProps {
 export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [themeMode, setThemeMode] = useState<ThemeMode>(readThemeMode)
+
+  const { data: settings } = useSettings()
+  const [opacity, setOpacity] = useState(DEFAULT_OVERLAY_OPACITY)
+  const saveTimer = useRef<number | null>(null)
+
+  // 设置读回来后同步一次，避免界面显示默认值而实际用的是库里的值
+  useEffect(() => {
+    setOpacity(readOpacity(settings))
+  }, [settings])
+
+  // 卸载时清掉还没执行的防抖保存，否则会对已卸载组件 setState / 写入过期值
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current)
+    }
+  }, [])
+
+  const updateOpacity = (value: number): void => {
+    setOpacity(value)
+    if (saveTimer.current) window.clearTimeout(saveTimer.current)
+    // 拖动滑块会连续触发 change，防抖后再写库
+    saveTimer.current = window.setTimeout(() => {
+      saveTimer.current = null
+      void getApi().setting.set('overlay.opacity', String(value))
+    }, 250)
+  }
+
+  const closeAction = settings?.['app.closeAction'] === 'quit' ? 'quit' : 'tray'
+
+  const setCloseAction = (value: 'tray' | 'quit'): void => {
+    void getApi().setting.set('app.closeAction', value)
+  }
 
   // 只在弹窗打开时查询，避免应用启动时就打一次 IPC
   const { data: dbInfo } = useQuery({
@@ -109,13 +147,14 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           </div>
         </section>
 
-        <section className="flex flex-col gap-2 border-t border-line pt-4">
+        <section className="flex flex-col gap-3 border-t border-line pt-4">
           <h3 className="text-xs font-medium tracking-wide text-ink-muted">悬浮窗</h3>
+
           <div className="flex items-center justify-between gap-4">
             <div className="flex flex-col gap-0.5">
               <span className="text-sm text-ink">置于桌面顶端</span>
               <span className="text-xs text-ink-muted">
-                半透明、可拖到任意位置 · Ctrl+Shift+L 锁定穿透 · Ctrl+Shift+O 显示/隐藏
+                可拖到任意位置 · Ctrl+Shift+L 锁定穿透 · Ctrl+Shift+O 显示/隐藏
               </span>
             </div>
             <Button
@@ -127,6 +166,71 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             >
               打开
             </Button>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-line pt-3">
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="overlay-opacity" className="text-sm text-ink">
+                背景不透明度
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="tabular text-xs text-ink-muted">{Math.round(opacity * 100)}%</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-1.5"
+                  disabled={opacity === DEFAULT_OVERLAY_OPACITY}
+                  onClick={() => updateOpacity(DEFAULT_OVERLAY_OPACITY)}
+                >
+                  恢复默认
+                </Button>
+              </div>
+            </div>
+            <input
+              id="overlay-opacity"
+              type="range"
+              min={35}
+              max={100}
+              step={1}
+              value={Math.round(opacity * 100)}
+              onChange={(event) => updateOpacity(Number(event.target.value) / 100)}
+              aria-describedby="overlay-opacity-hint"
+              className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-panel-sunken accent-brand"
+            />
+            <p id="overlay-opacity-hint" className="text-xs text-ink-muted">
+              只影响卡片背景，文字始终保持清晰。默认 {Math.round(DEFAULT_OVERLAY_OPACITY * 100)}%。
+            </p>
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-2 border-t border-line pt-4">
+          <h3 className="text-xs font-medium tracking-wide text-ink-muted">应用</h3>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm text-ink">点关闭按钮时</span>
+              <span className="text-xs text-ink-muted">
+                缩到托盘时应用继续在后台运行，悬浮窗不受影响
+              </span>
+            </div>
+            <fieldset className="flex shrink-0 gap-0.5 rounded-md bg-panel-sunken p-0.5">
+              <legend className="sr-only">关闭行为</legend>
+              {CLOSE_ACTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={closeAction === option.value}
+                  onClick={() => setCloseAction(option.value)}
+                  className={cn(
+                    'rounded-sm px-2.5 py-1 text-xs transition-colors',
+                    closeAction === option.value
+                      ? 'bg-panel font-medium text-ink shadow-sm'
+                      : 'text-ink-muted hover:text-ink',
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </fieldset>
           </div>
         </section>
 

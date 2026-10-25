@@ -181,6 +181,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.settingAll, () => allSettings(getDb()))
   ipcMain.handle(IPC.settingSet, (_event, key: unknown, value: unknown) => {
     setSetting(getDb(), requireString(key, 'key'), requireString(value, 'value'))
+    // 设置变更也要广播：悬浮窗透明度、关闭行为都依赖它
+    broadcastDataChanged('setting')
   })
 
   ipcMain.handle(IPC.pickableTasks, () => listPickableTasks(getDb()))

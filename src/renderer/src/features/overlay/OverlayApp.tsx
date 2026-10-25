@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import BrandMark from '../../components/BrandMark'
 import { getApi } from '../../lib/api'
 import { cn } from '../../lib/cn'
+import { useDataSync } from '../../lib/data-sync'
+import { readOpacity, useSettings } from '../../lib/use-settings'
 import { useToday } from '../../lib/use-today'
 import { useTodoMutations, useTodos } from '../today/api'
 
@@ -24,6 +26,24 @@ export default function OverlayApp() {
   const { today } = useToday()
   const { data } = useTodos(today)
   const { toggle } = useTodoMutations()
+
+  // 透明度来自设置页，实现在 CSS 变量上：只改 alpha，文字不受影响
+  const { data: settings } = useSettings()
+  const opacity = readOpacity(settings)
+
+  // 必须设在 <html> 上而不是卡片上 —— --overlay-bg 是在 :root 里由
+  // rgb(var(--overlay-rgb) / var(--overlay-opacity)) 组合出来的，
+  // 只在卡片上覆盖后者的时，background-color 仍按 :root 的值算。
+  useEffect(() => {
+    document.documentElement.style.setProperty('--overlay-opacity', String(opacity))
+    return () => {
+      document.documentElement.style.removeProperty('--overlay-opacity')
+    }
+  }, [opacity])
+
+  // 悬浮窗是独立的渲染进程，没有这层订阅就收不到主窗口的写操作，
+  // 表现为主窗口勾了待办、悬浮窗还是旧数据
+  useDataSync()
 
   const [state, setState] = useState<OverlayState>({
     visible: true,
@@ -54,7 +74,12 @@ export default function OverlayApp() {
   const doneCount = todos.filter((todo) => todo.status === 'done').length
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[var(--overlay-radius)] border border-[var(--overlay-line)] bg-[var(--overlay-bg)] text-ink">
+    <div
+      className={cn(
+        'flex h-full flex-col overflow-hidden rounded-[var(--overlay-radius)] border bg-[var(--overlay-bg)] text-ink transition-colors',
+        state.locked ? 'border-warn/60' : 'border-[var(--overlay-line)]',
+      )}
+    >
       <header className="flex h-11 shrink-0 items-center justify-between gap-2 px-3 [-webkit-app-region:drag]">
         <div className="flex min-w-0 items-center gap-2">
           <BrandMark size={14} className="shrink-0 text-brand" />
@@ -155,9 +180,11 @@ export default function OverlayApp() {
       ) : null}
 
       {state.locked ? (
-        <p className="shrink-0 px-3 pb-1.5 text-center text-[10px] text-ink-subtle [-webkit-app-region:no-drag]">
-          已锁定 · 鼠标点击会穿透 · Ctrl+Shift+L 解锁
-        </p>
+        <div className="shrink-0 border-t border-warn/30 bg-warn-soft px-3 py-1.5 text-center [-webkit-app-region:no-drag]">
+          <p className="text-[11px] font-medium text-warn">
+            已锁定：点击会穿透 · 按 Ctrl+Shift+L 解锁
+          </p>
+        </div>
       ) : null}
     </div>
   )
