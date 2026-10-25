@@ -6,18 +6,28 @@ import ConfirmDialog from '../../components/ConfirmDialog'
 import EmptyState from '../../components/EmptyState'
 import ErrorState from '../../components/ErrorState'
 import PageHeader from '../../components/PageHeader'
+import { cn } from '../../lib/cn'
 import { usePlanMutations, usePlanTree } from './api'
 import CategoryDialog from './CategoryDialog'
 import PlanDetailPanel from './PlanDetailPanel'
 import PlanFormDialog from './PlanFormDialog'
+import PlanTimeline from './PlanTimeline'
 import PlanTree from './PlanTree'
 import { findNodeById } from './tree-utils'
+
+const VIEW_TABS = [
+  { value: 'tree', label: '树形' },
+  { value: 'timeline', label: '时间线' },
+] as const
+
+type PlanView = (typeof VIEW_TABS)[number]['value']
 
 export default function PlansPage() {
   const { data, isLoading, error, refetch } = usePlanTree()
   const { removePlan } = usePlanMutations()
   const nodes = data ?? []
 
+  const [view, setView] = useState<PlanView>('tree')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null)
@@ -65,6 +75,25 @@ export default function PlansPage() {
         title="计划"
         actions={
           <>
+            {/* 视图切换：树形看层级与进度，时间线看各计划覆盖的时间段 */}
+            <div className="mr-1 flex gap-0.5 rounded-md bg-panel-sunken p-0.5">
+              {VIEW_TABS.map((tab) => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  aria-pressed={view === tab.value}
+                  onClick={() => setView(tab.value)}
+                  className={cn(
+                    'rounded-sm px-2.5 py-1 text-xs transition-colors',
+                    view === tab.value
+                      ? 'bg-panel font-medium text-ink shadow-sm'
+                      : 'text-ink-muted hover:text-ink',
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
             <Button size="sm" variant="ghost" onClick={() => setCategoryOpen(true)}>
               <Tag size={14} aria-hidden="true" />
               分类
@@ -99,6 +128,17 @@ export default function PlansPage() {
             </Button>
           }
         />
+      ) : view === 'timeline' ? (
+        <div className="flex min-h-0 flex-1 p-4">
+          <PlanTimeline
+            nodes={nodes}
+            onSelect={(id) => {
+              // 从时间线点进某个计划后切回树形，用户能直接看到详情与任务
+              setSelectedId(id)
+              setView('tree')
+            }}
+          />
+        </div>
       ) : (
         <div className="flex min-h-0 flex-1">
           <aside className="flex w-[280px] shrink-0 flex-col border-r border-line">

@@ -2,6 +2,7 @@ import { progressPercent } from '@shared/domain/progress'
 import type { Plan } from '@shared/types'
 import { CalendarDays, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 import Button from '../../components/Button'
+import MarkdownLazy from '../../components/MarkdownLazy'
 import ProgressBar from '../../components/ProgressBar'
 import { colorStyle } from '../../lib/colors'
 import { formatRange } from '../../lib/date'
@@ -102,9 +103,7 @@ export default function PlanDetailPanel({
           </span>
         </div>
 
-        {plan.note ? (
-          <p className="whitespace-pre-wrap text-sm text-ink-secondary">{plan.note}</p>
-        ) : null}
+        {plan.note ? <MarkdownLazy>{plan.note}</MarkdownLazy> : null}
       </header>
 
       {childPlans.length > 0 ? (

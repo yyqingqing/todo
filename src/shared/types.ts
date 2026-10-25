@@ -49,10 +49,12 @@ export interface PlanStats {
   taskDone: number
 }
 
-/** 侧边栏用的树节点 */
+/** 侧边栏/时间线用的树节点 */
 export interface PlanNode extends Plan {
   children: PlanNode[]
   stats: PlanStats
+  /** 分类色 token，时间线上用来区分不同领域的计划 */
+  categoryColor: string | null
 }
 
 /** 任务：计划的叶子，必须归属一个计划。完成状态由 todo_item 派生，自身没有 done */

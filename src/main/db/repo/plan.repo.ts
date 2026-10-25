@@ -9,6 +9,7 @@ interface PlanRow {
   id: string
   parentId: string | null
   categoryId: string | null
+  categoryColor: string | null
   title: string
   note: string | null
   startDate: string
@@ -22,11 +23,12 @@ interface PlanRow {
 
 const PLAN_SELECT = `
   SELECT
-    id, parent_id AS parentId, category_id AS categoryId, title, note,
-    start_date AS startDate, end_date AS endDate, status,
-    sort_order AS sortOrder, completed_at AS completedAt,
-    created_at AS createdAt, updated_at AS updatedAt
-  FROM plan
+    p.id, p.parent_id AS parentId, p.category_id AS categoryId, c.color AS categoryColor,
+    p.title, p.note, p.start_date AS startDate, p.end_date AS endDate, p.status,
+    p.sort_order AS sortOrder, p.completed_at AS completedAt,
+    p.created_at AS createdAt, p.updated_at AS updatedAt
+  FROM plan p
+  LEFT JOIN category c ON c.id = p.category_id
 `
 
 /**
@@ -36,7 +38,7 @@ const PLAN_SELECT = `
  * 真到数据量撑不住再换闭包表，不值得现在优化。
  */
 export function listPlanTree(db: DatabaseSync): PlanNode[] {
-  const rows = all<PlanRow>(db, `${PLAN_SELECT} ORDER BY sort_order ASC, created_at ASC`)
+  const rows = all<PlanRow>(db, `${PLAN_SELECT} ORDER BY p.sort_order ASC, p.created_at ASC`)
   if (rows.length === 0) return []
 
   const statsByPlan = loadStatsByPlan(db)
@@ -101,7 +103,7 @@ function loadStatsByPlan(db: DatabaseSync): Map<string, PlanStats> {
 
 /** 单个计划（不含统计），用于详情页头部与表单回填 */
 export function getPlan(db: DatabaseSync, id: string): Plan | null {
-  return get<Plan>(db, `${PLAN_SELECT} WHERE id = ?`, [id]) ?? null
+  return get<Plan>(db, `${PLAN_SELECT} WHERE p.id = ?`, [id]) ?? null
 }
 
 function findNode(nodes: readonly PlanNode[], id: string): PlanNode | null {

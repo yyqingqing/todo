@@ -2,9 +2,16 @@ import type { Plan } from '@shared/types'
 import { useEffect, useState } from 'react'
 import Button from '../../components/Button'
 import Dialog from '../../components/Dialog'
+import MarkdownLazy from '../../components/MarkdownLazy'
+import { cn } from '../../lib/cn'
 import { addDays, todayStr } from '../../lib/date'
 import { fieldErrorClass, inputClass, labelClass, textareaClass } from '../../lib/ui'
 import { useCategories, usePlanMutations } from './api'
+
+const NOTE_TABS = [
+  { value: 'edit', label: '编辑' },
+  { value: 'preview', label: '预览' },
+] as const
 
 interface PlanFormDialogProps {
   open: boolean
@@ -30,6 +37,7 @@ export default function PlanFormDialog({ open, plan, parentId, onClose }: PlanFo
   const [endDate, setEndDate] = useState(() => addDays(todayStr(), 30))
   const [categoryId, setCategoryId] = useState('')
   const [note, setNote] = useState('')
+  const [noteTab, setNoteTab] = useState<'edit' | 'preview'>('edit')
   const [error, setError] = useState<string | null>(null)
 
   // 每次打开都重置成初始值，避免上一次的输入残留
@@ -41,6 +49,7 @@ export default function PlanFormDialog({ open, plan, parentId, onClose }: PlanFo
     setEndDate(plan?.endDate ?? addDays(todayStr(), 30))
     setCategoryId(plan?.categoryId ?? '')
     setNote(plan?.note ?? '')
+    setNoteTab('edit')
   }, [open, plan])
 
   const submit = async (): Promise<void> => {
@@ -146,17 +155,48 @@ export default function PlanFormDialog({ open, plan, parentId, onClose }: PlanFo
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="plan-note" className={labelClass}>
-          备注
-        </label>
-        <textarea
-          id="plan-note"
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          rows={3}
-          placeholder="可选：这个计划为什么重要、怎么算完成"
-          className={textareaClass}
-        />
+        <div className="flex items-center justify-between">
+          <label htmlFor="plan-note" className={labelClass}>
+            备注
+          </label>
+          <div className="flex gap-0.5 rounded bg-panel-sunken p-0.5">
+            {NOTE_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                aria-pressed={noteTab === tab.value}
+                onClick={() => setNoteTab(tab.value)}
+                className={cn(
+                  'rounded-sm px-2 py-0.5 text-[11px] transition-colors',
+                  noteTab === tab.value
+                    ? 'bg-panel font-medium text-ink shadow-sm'
+                    : 'text-ink-muted hover:text-ink',
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {noteTab === 'edit' ? (
+          <textarea
+            id="plan-note"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            rows={6}
+            placeholder={'支持 Markdown：\n# 标题\n- 列表项\n**加粗**、`代码`'}
+            className={textareaClass}
+          />
+        ) : (
+          <div className="min-h-[132px] rounded-md border border-line bg-panel px-2.5 py-2">
+            {note.trim() ? (
+              <MarkdownLazy>{note}</MarkdownLazy>
+            ) : (
+              <p className="text-xs text-ink-subtle">还没有内容</p>
+            )}
+          </div>
+        )}
       </div>
 
       {error ? (
