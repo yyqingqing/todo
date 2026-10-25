@@ -87,6 +87,8 @@ export interface TodoItem {
 /** 清单项 + 它属于哪个计划（临时事项为 null），用于在列表里显示归属 */
 export interface TodoWithPlan extends TodoItem {
   planTitle: string | null
+  /** 所属计划的分类颜色 token。用于在清单里一眼区分"计划任务"和"临时事项" */
+  planColor: string | null
 }
 
 /** 数据库状态，用于设置页展示与验收 */

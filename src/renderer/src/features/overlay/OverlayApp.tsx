@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import BrandMark from '../../components/BrandMark'
 import { getApi } from '../../lib/api'
 import { cn } from '../../lib/cn'
+import { colorStyle } from '../../lib/colors'
 import { useDataSync } from '../../lib/data-sync'
 import { readOpacity, useSettings } from '../../lib/use-settings'
 import { useToday } from '../../lib/use-today'
@@ -162,6 +163,19 @@ export default function OverlayApp() {
                       >
                         {done ? <Check size={10} strokeWidth={3.4} /> : null}
                       </span>
+                      {/* 悬浮窗空间小，用色点区分"计划任务"和"临时事项"，不放大段文字 */}
+                      {todo.planTitle ? (
+                        <span
+                          className="mt-1 size-1.5 shrink-0 rounded-full"
+                          style={colorStyle(todo.planColor)}
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <span
+                          className="mt-1 size-1.5 shrink-0 rounded-full bg-ink-subtle/40"
+                          aria-hidden="true"
+                        />
+                      )}
                       <span
                         className={cn(
                           'text-xs break-words',

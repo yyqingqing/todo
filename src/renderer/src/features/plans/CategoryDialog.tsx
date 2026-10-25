@@ -3,9 +3,9 @@ import { useState } from 'react'
 import Button from '../../components/Button'
 import Dialog from '../../components/Dialog'
 import { cn } from '../../lib/cn'
+import { CATEGORY_COLORS, colorStyle } from '../../lib/colors'
 import { fieldErrorClass, inputClass } from '../../lib/ui'
 import { useCategories, usePlanMutations } from './api'
-import { CATEGORY_COLORS, colorStyle } from './colors'
 
 interface CategoryDialogProps {
   open: boolean

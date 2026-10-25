@@ -3,6 +3,8 @@
  *
  * 数据库里只存 token 名（'cat-1'），不存 hex：
  * 换主题、换品牌色时分类颜色不用迁移数据，也不会出现"浅色好看深色刺眼"。
+ *
+ * 放在 lib 而不是某个 feature 下：今日清单也要用它标记"这条待办属于哪个计划的哪个分类"。
  */
 export const CATEGORY_COLORS = ['cat-1', 'cat-2', 'cat-3', 'cat-4', 'cat-5', 'cat-6'] as const
 

@@ -3,9 +3,9 @@ import type { Plan } from '@shared/types'
 import { CalendarDays, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 import Button from '../../components/Button'
 import ProgressBar from '../../components/ProgressBar'
+import { colorStyle } from '../../lib/colors'
 import { formatRange } from '../../lib/date'
 import { usePlanDetail } from './api'
-import { colorStyle } from './colors'
 import TaskList from './TaskList'
 
 interface PlanDetailPanelProps {

@@ -4,8 +4,10 @@ import type { TodoCreateInput, TodoWithPlan } from '@shared/types'
 import { all, get, transaction } from '../sql'
 
 /**
- * 带上归属计划名：清单里要能看出"这件事属于哪个计划"，
- * 否则计划和每日就是两个互不相干的列表，这个产品的核心连接就断了。
+ * 带上归属计划名与分类色。
+ *
+ * 清单里必须能看出"这条是计划里的任务，还是临时想起来的事"：
+ * 前者在推进某个长期计划，后者只是一次性的事，两者的心理权重完全不同。
  */
 const TODO_SELECT = `
   SELECT
@@ -13,10 +15,12 @@ const TODO_SELECT = `
     ti.scheduled_date AS scheduledDate, ti.origin_date AS originDate,
     ti.status, ti.completed_at AS completedAt, ti.rollover_count AS rolloverCount,
     ti.sort_order AS sortOrder, ti.created_at AS createdAt, ti.updated_at AS updatedAt,
-    p.title AS planTitle
+    p.title AS planTitle,
+    c.color AS planColor
   FROM todo_item ti
   LEFT JOIN task t ON t.id = ti.task_id
   LEFT JOIN plan p ON p.id = t.plan_id
+  LEFT JOIN category c ON c.id = p.category_id
 `
 
 export function getTodo(db: DatabaseSync, id: string): TodoWithPlan | null {

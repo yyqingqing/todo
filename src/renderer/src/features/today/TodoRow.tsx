@@ -1,6 +1,7 @@
 import type { TodoWithPlan } from '@shared/types'
 import { Check, CornerUpRight, Trash2 } from 'lucide-react'
 import { cn } from '../../lib/cn'
+import { colorStyle } from '../../lib/colors'
 
 /** 顺延超过这个次数就提示用户：可能是这件事需要拆小，或者该放弃了 */
 const ROLLOVER_HINT_THRESHOLD = 3
@@ -63,8 +64,23 @@ export default function TodoRow({
             {todo.title}
           </span>
 
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-            {todo.planTitle ? <span className="text-ink-muted">{todo.planTitle}</span> : null}
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+            {todo.planTitle ? (
+              // 计划任务：分类色点 + 计划名，一眼看出它在推进哪个长期计划
+              <span className="inline-flex items-center gap-1 text-ink-muted">
+                <span
+                  className="size-1.5 shrink-0 rounded-full"
+                  style={colorStyle(todo.planColor)}
+                  aria-hidden="true"
+                />
+                {todo.planTitle}
+              </span>
+            ) : (
+              // 临时事项：明确标出来，而不是靠"没有计划名"这种空缺去暗示
+              <span className="rounded-sm border border-line bg-panel px-1 py-px text-[10px] leading-normal text-ink-muted">
+                临时
+              </span>
+            )}
             {todo.rolloverCount > 0 ? (
               <span className={overdueHint ? 'text-warn' : 'text-ink-subtle'}>
                 已顺延 {todo.rolloverCount} 次{overdueHint ? '，要不要拆小一点？' : ''}
