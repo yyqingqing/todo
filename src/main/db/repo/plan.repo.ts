@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
-import type { Plan, PlanDetail, PlanInput, PlanNode, PlanStats } from '@shared/types'
+import type { PickableTask, Plan, PlanDetail, PlanInput, PlanNode, PlanStats } from '@shared/types'
 import { all, get } from '../sql'
 import { getCategory } from './category.repo'
 import { listTasksByPlan } from './task.repo'
@@ -231,4 +231,23 @@ export function savePlan(db: DatabaseSync, input: PlanInput): Plan {
  */
 export function removePlan(db: DatabaseSync, id: string): void {
   db.prepare('DELETE FROM plan WHERE id = ?').run(id)
+}
+
+/**
+ * 可以被排进清单的任务：属于某个计划，且还没有对应的待办。
+ *
+ * v1 不做周期任务，"任务 ↔ 待办"是 1:1，所以"没有 todo_item"就等于"还没排期"。
+ * 以后加重复任务，这里要改成按规则判断当天是否已生成。
+ */
+export function listPickableTasks(db: DatabaseSync): PickableTask[] {
+  return all<PickableTask>(
+    db,
+    `SELECT
+       t.id, t.title, t.plan_id AS planId, p.title AS planTitle
+     FROM task t
+     JOIN plan p ON p.id = t.plan_id
+     WHERE t.status = 'open'
+       AND NOT EXISTS (SELECT 1 FROM todo_item ti WHERE ti.task_id = t.id)
+     ORDER BY p.sort_order ASC, p.created_at ASC, t.sort_order ASC, t.created_at ASC`,
+  )
 }

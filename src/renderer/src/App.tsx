@@ -3,10 +3,10 @@ import { useEffect } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import AppShell from './components/AppShell'
 import PlansPage from './features/plans/PlansPage'
+import TodayPage from './features/today/TodayPage'
 import { watchSystemTheme } from './lib/theme'
 import CalendarPage from './pages/CalendarPage'
 import ScorePage from './pages/ScorePage'
-import TodayPage from './pages/TodayPage'
 
 /**
  * 本地 IPC 数据也走 TanStack Query：缓存、失效、并发去重都是现成的。

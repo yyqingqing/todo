@@ -1,0 +1,109 @@
+import { randomUUID } from 'node:crypto'
+import type { DatabaseSync } from 'node:sqlite'
+import type { TodoCreateInput, TodoWithPlan } from '@shared/types'
+import { all, get, transaction } from '../sql'
+
+/**
+ * 带上归属计划名：清单里要能看出"这件事属于哪个计划"，
+ * 否则计划和每日就是两个互不相干的列表，这个产品的核心连接就断了。
+ */
+const TODO_SELECT = `
+  SELECT
+    ti.id, ti.task_id AS taskId, ti.title,
+    ti.scheduled_date AS scheduledDate, ti.origin_date AS originDate,
+    ti.status, ti.completed_at AS completedAt, ti.rollover_count AS rolloverCount,
+    ti.sort_order AS sortOrder, ti.created_at AS createdAt, ti.updated_at AS updatedAt,
+    p.title AS planTitle
+  FROM todo_item ti
+  LEFT JOIN task t ON t.id = ti.task_id
+  LEFT JOIN plan p ON p.id = t.plan_id
+`
+
+export function getTodo(db: DatabaseSync, id: string): TodoWithPlan | null {
+  return get<TodoWithPlan>(db, `${TODO_SELECT} WHERE ti.id = ?`, [id]) ?? null
+}
+
+export function listTodosByDate(db: DatabaseSync, date: string): TodoWithPlan[] {
+  return all<TodoWithPlan>(
+    db,
+    `${TODO_SELECT} WHERE ti.scheduled_date = ? ORDER BY ti.sort_order ASC, ti.created_at ASC`,
+    [date],
+  )
+}
+
+/**
+ * 新建一条待办。
+ * origin_date 与 scheduled_date 同时设成今天 —— 之后顺延只改 scheduled_date，
+ * origin_date 是"最初打算哪天做"的凭证，不能动。
+ */
+export function createTodo(db: DatabaseSync, input: TodoCreateInput): TodoWithPlan {
+  const title = input.title.trim()
+  if (title.length === 0) throw new Error('待办内容不能为空')
+
+  const taskId = input.taskId ?? null
+
+  if (taskId !== null) {
+    // task_id 上有 UNIQUE 约束，这里提前给中文提示，否则用户看到的是 SQLite 的英文报错
+    const existing = get<{ id: string }>(db, 'SELECT id FROM todo_item WHERE task_id = ?', [taskId])
+    if (existing) throw new Error('这个任务已经在清单里了')
+  }
+
+  const nextOrder =
+    get<{ next: number }>(
+      db,
+      'SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM todo_item WHERE scheduled_date = ?',
+      [input.scheduledDate],
+    )?.next ?? 0
+
+  const id = randomUUID()
+  const now = new Date().toISOString()
+
+  db.prepare(
+    `INSERT INTO todo_item
+       (id, task_id, title, scheduled_date, origin_date, status, rollover_count, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?)`,
+  ).run(id, taskId, title, input.scheduledDate, input.scheduledDate, nextOrder, now, now)
+
+  return getTodo(db, id) as TodoWithPlan
+}
+
+/**
+ * 切换完成状态。
+ *
+ * 用"切换"而不是分开的 complete/uncomplete：界面只有一个复选框，
+ * 两个方法会让调用方必须自己判断当前状态，多一处可能不同步的地方。
+ */
+export function toggleTodo(db: DatabaseSync, id: string): TodoWithPlan {
+  const current = getTodo(db, id)
+  if (!current) throw new Error('待办不存在')
+  if (current.status === 'dropped') throw new Error('已放弃的待办不能标记完成')
+
+  const now = new Date().toISOString()
+
+  if (current.status === 'done') {
+    db.prepare(
+      "UPDATE todo_item SET status = 'pending', completed_at = NULL, updated_at = ? WHERE id = ?",
+    ).run(now, id)
+  } else {
+    db.prepare(
+      "UPDATE todo_item SET status = 'done', completed_at = ?, updated_at = ? WHERE id = ?",
+    ).run(now, now, id)
+  }
+
+  return getTodo(db, id) as TodoWithPlan
+}
+
+export function removeTodo(db: DatabaseSync, id: string): void {
+  db.prepare('DELETE FROM todo_item WHERE id = ?').run(id)
+}
+
+export function reorderTodos(db: DatabaseSync, date: string, orderedIds: string[]): void {
+  transaction(db, () => {
+    const statement = db.prepare(
+      'UPDATE todo_item SET sort_order = ? WHERE id = ? AND scheduled_date = ?',
+    )
+    orderedIds.forEach((id, index) => {
+      statement.run(index, id, date)
+    })
+  })
+}

@@ -84,6 +84,11 @@ export interface TodoItem {
   updatedAt: Timestamp
 }
 
+/** 清单项 + 它属于哪个计划（临时事项为 null），用于在列表里显示归属 */
+export interface TodoWithPlan extends TodoItem {
+  planTitle: string | null
+}
+
 /** 数据库状态，用于设置页展示与验收 */
 export interface DatabaseInfo {
   path: string
@@ -132,4 +137,23 @@ export interface PlanDetail {
   stats: PlanStats
   tasks: TaskWithState[]
   childPlans: PlanNode[]
+}
+
+/* ------------------------------------------------------------------ */
+/* 每日清单                                                            */
+/* ------------------------------------------------------------------ */
+
+export interface TodoCreateInput {
+  title: string
+  scheduledDate: DateString
+  /** 从计划拉取时传 taskId；临时事项不传 */
+  taskId?: string | null
+}
+
+/** 可被拉到今日清单的任务：属于某个计划，且还没有对应的待办 */
+export interface PickableTask {
+  id: string
+  title: string
+  planId: string
+  planTitle: string
 }

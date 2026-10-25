@@ -1,12 +1,25 @@
 import { IPC } from '@shared/ipc-contract'
-import type { CategoryInput, PlanInput, TaskInput } from '@shared/types'
+import type { CategoryInput, PlanInput, TaskInput, TodoCreateInput } from '@shared/types'
 import { ipcMain } from 'electron'
 import { broadcastDataChanged } from '../broadcast'
 import { getDatabaseInfo, getDb } from '../db/connection'
 import { listCategories, removeCategory, saveCategory } from '../db/repo/category.repo'
-import { getPlanDetail, listPlanTree, removePlan, savePlan } from '../db/repo/plan.repo'
+import {
+  getPlanDetail,
+  listPickableTasks,
+  listPlanTree,
+  removePlan,
+  savePlan,
+} from '../db/repo/plan.repo'
 import { allSettings, setSetting } from '../db/repo/setting.repo'
 import { removeTask, reorderTasks, saveTask } from '../db/repo/task.repo'
+import {
+  createTodo,
+  listTodosByDate,
+  removeTodo,
+  reorderTodos,
+  toggleTodo,
+} from '../db/repo/todo.repo'
 
 /**
  * 注册所有 IPC handler。
@@ -100,6 +113,15 @@ function parseStringArray(value: unknown, field: string): string[] {
   return value.map((item, index) => requireString(item, `${field}[${index}]`))
 }
 
+function parseTodoInput(raw: unknown): TodoCreateInput {
+  const record = asRecord(raw, 'todo')
+  return {
+    title: requireString(record['title'], 'title'),
+    scheduledDate: requireDate(record['scheduledDate'], 'scheduledDate'),
+    taskId: nullableString(record['taskId'], 'taskId'),
+  }
+}
+
 /* ---------------- handler 注册 ---------------- */
 
 export function registerIpcHandlers(): void {
@@ -151,5 +173,31 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.settingAll, () => allSettings(getDb()))
   ipcMain.handle(IPC.settingSet, (_event, key: unknown, value: unknown) => {
     setSetting(getDb(), requireString(key, 'key'), requireString(value, 'value'))
+  })
+
+  ipcMain.handle(IPC.pickableTasks, () => listPickableTasks(getDb()))
+
+  ipcMain.handle(IPC.todoByDate, (_event, date: unknown) =>
+    listTodosByDate(getDb(), requireDate(date, 'date')),
+  )
+  ipcMain.handle(IPC.todoCreate, (_event, raw: unknown) => {
+    const todo = createTodo(getDb(), parseTodoInput(raw))
+    broadcastDataChanged('todo')
+    return todo
+  })
+  // 完成状态会改变计划进度，而 data-sync 里 todo 的失效范围已经包含 plan，
+  // 所以这里只广播一次 todo 就够了
+  ipcMain.handle(IPC.todoToggle, (_event, id: unknown) => {
+    const todo = toggleTodo(getDb(), requireString(id, 'id'))
+    broadcastDataChanged('todo')
+    return todo
+  })
+  ipcMain.handle(IPC.todoRemove, (_event, id: unknown) => {
+    removeTodo(getDb(), requireString(id, 'id'))
+    broadcastDataChanged('todo')
+  })
+  ipcMain.handle(IPC.todoReorder, (_event, date: unknown, orderedIds: unknown) => {
+    reorderTodos(getDb(), requireDate(date, 'date'), parseStringArray(orderedIds, 'orderedIds'))
+    broadcastDataChanged('todo')
   })
 }

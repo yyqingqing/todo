@@ -32,6 +32,16 @@ const api: Api = {
     reorder: (planId, orderedIds) => ipcRenderer.invoke(IPC.taskReorder, planId, orderedIds),
   },
 
+  todo: {
+    byDate: (date) => ipcRenderer.invoke(IPC.todoByDate, date),
+    create: (input) => ipcRenderer.invoke(IPC.todoCreate, input),
+    toggle: (id) => ipcRenderer.invoke(IPC.todoToggle, id),
+    remove: (id) => ipcRenderer.invoke(IPC.todoRemove, id),
+    reorder: (date, orderedIds) => ipcRenderer.invoke(IPC.todoReorder, date, orderedIds),
+  },
+
+  pickableTasks: () => ipcRenderer.invoke(IPC.pickableTasks),
+
   setting: {
     all: () => ipcRenderer.invoke(IPC.settingAll),
     set: (key, value) => ipcRenderer.invoke(IPC.settingSet, key, value),

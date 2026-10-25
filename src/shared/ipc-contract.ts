@@ -2,12 +2,16 @@ import type {
   Category,
   CategoryInput,
   DatabaseInfo,
+  DateString,
+  PickableTask,
   Plan,
   PlanDetail,
   PlanInput,
   PlanNode,
   Task,
   TaskInput,
+  TodoCreateInput,
+  TodoWithPlan,
 } from './types'
 
 /**
@@ -46,6 +50,18 @@ export interface Api {
     reorder(planId: string, orderedIds: string[]): Promise<void>
   }
 
+  todo: {
+    /** 某一天的清单，按用户排序；每项带上归属计划名，临时事项为 null */
+    byDate(date: DateString): Promise<TodoWithPlan[]>
+    create(input: TodoCreateInput): Promise<TodoWithPlan>
+    /** 完成 / 取消完成，一个方法覆盖两个方向 */
+    toggle(id: string): Promise<TodoWithPlan>
+    remove(id: string): Promise<void>
+    reorder(date: DateString, orderedIds: string[]): Promise<void>
+  }
+  /** 从计划里挑任务排进清单时用 */
+  pickableTasks(): Promise<PickableTask[]>
+
   setting: {
     all(): Promise<Record<string, string>>
     set(key: string, value: string): Promise<void>
@@ -78,6 +94,14 @@ export const IPC = {
   taskSave: 'task:save',
   taskRemove: 'task:remove',
   taskReorder: 'task:reorder',
+
+  todoByDate: 'todo:by-date',
+  todoCreate: 'todo:create',
+  todoToggle: 'todo:toggle',
+  todoRemove: 'todo:remove',
+  todoReorder: 'todo:reorder',
+
+  pickableTasks: 'plan:pickable-tasks',
 
   settingAll: 'setting:all',
   settingSet: 'setting:set',
