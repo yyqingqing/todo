@@ -1,8 +1,9 @@
 import { PRODUCT } from '@shared/product'
 import { BarChart3, CalendarDays, Layers, ListChecks, Settings } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import SettingsDialog from '../features/settings/SettingsDialog'
+import { getApi } from '../lib/api'
 import { cn } from '../lib/cn'
 import { useDataSync } from '../lib/data-sync'
 import BrandMark from './BrandMark'
@@ -21,6 +22,17 @@ export default function AppShell() {
 
   // 订阅主进程的数据变更广播，让两个窗口的数据保持一致
   useDataSync()
+
+  /**
+   * 窗口缩到托盘时把设置弹窗收掉。
+   *
+   * 不这么做的话：打开设置 -> 点窗口的 × （按设置是缩到托盘，不是退出）
+   * -> 从托盘恢复，设置原样回来。React 状态不随窗口隐藏重置，
+   * 用户看到的就是「设置弹窗每次都在、关不掉」。
+   */
+  useEffect(() => {
+    return getApi().window.onHidden(() => setSettingsOpen(false))
+  }, [])
 
   return (
     <div className="flex h-full min-h-0 bg-canvas">

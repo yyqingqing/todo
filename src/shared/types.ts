@@ -9,6 +9,19 @@
 
 /** 本地日历日，YYYY-MM-DD */
 export type DateString = string
+
+/**
+ * 开机自启的真实状态。
+ *
+ * enabled 是「系统里实际有没有注册」，不是设置表里记的偏好 ——
+ * 安全软件可能拦掉注册表写入，那时 setLoginItemSettings 不抛错但也没生效，
+ * 界面必须显示实际值，否则用户以为开机会启动、实际不会。
+ */
+export interface LaunchState {
+  enabled: boolean
+  /** 开发环境不支持（exe 在 node_modules 里），打包后才为 true */
+  supported: boolean
+}
 /** UTC ISO 时间戳 */
 export type Timestamp = string
 

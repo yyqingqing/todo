@@ -14,6 +14,7 @@ const api: Api = {
     info: () => ipcRenderer.invoke(IPC.appInfo),
     openDataDir: () => ipcRenderer.invoke(IPC.appOpenDataDir),
     setLaunchAtLogin: (enabled) => ipcRenderer.invoke(IPC.appSetLaunchAtLogin, enabled),
+    getLaunchState: () => ipcRenderer.invoke(IPC.appLaunchAtLoginState),
     isLaunchAtLoginSupported: () => ipcRenderer.invoke(IPC.appLaunchAtLoginSupported),
   },
 
@@ -65,6 +66,18 @@ const api: Api = {
   setting: {
     all: () => ipcRenderer.invoke(IPC.settingAll),
     set: (key, value) => ipcRenderer.invoke(IPC.settingSet, key, value),
+  },
+
+  window: {
+    onHidden: (callback) => {
+      const handler = (): void => {
+        callback()
+      }
+      ipcRenderer.on(IPC.windowHidden, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC.windowHidden, handler)
+      }
+    },
   },
 
   onDataChanged: (callback) => {

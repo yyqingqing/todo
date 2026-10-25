@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
+import { IPC } from '@shared/ipc-contract'
 import { PRODUCT } from '@shared/product'
 import { app, BrowserWindow, globalShortcut, nativeTheme, session, shell } from 'electron'
 import { closeDatabase, getDb, openDatabase } from './db/connection'
@@ -83,6 +84,12 @@ function createMainWindow(): void {
     // 开机自启（--hidden）时不显示主窗口：用户要的是悬浮窗和托盘，
     // 不是每次开机都被一个窗口抢焦点
     if (!START_HIDDEN) win.show()
+  })
+
+  // 窗口被隐藏（缩到托盘 / 快捷键）时通知界面，让它把打开的弹窗收掉。
+  // 只 hide 不重置 React 状态，从托盘恢复后弹窗会原样回来，看起来像"关不掉"。
+  win.on('hide', () => {
+    if (!win.isDestroyed()) win.webContents.send(IPC.windowHidden)
   })
 
   // 关闭行为：默认缩到托盘继续跑（悬浮窗还在用），用户可以在设置里改成直接退出

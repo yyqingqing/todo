@@ -3,6 +3,7 @@ import type {
   CategoryInput,
   DatabaseInfo,
   DateString,
+  LaunchState,
   MonthView,
   OverlayState,
   PickableTask,
@@ -32,11 +33,12 @@ export interface Api {
     /** 在系统文件管理器里打开数据目录，方便手动备份 qingqing.db */
     openDataDir(): Promise<void>
     /**
-     * 开关开机自启。返回是否真正写入了系统（开发环境返回 false）。
-     * 开发环境下 exe 是 node_modules 里的 electron.exe，注册后开机会启动一个没有
-     * dev server 的空白窗口，所以只在打包后生效。
+     * 设置开机自启。返回系统的**实际**状态（不是传入的意图）：
+     * 安全软件拦截时写入会静默失败，界面必须按返回值显示，否则就是在骗用户。
      */
-    setLaunchAtLogin(enabled: boolean): Promise<boolean>
+    setLaunchAtLogin(enabled: boolean): Promise<LaunchState>
+    /** 读系统里的真实状态。开关显示这个，而不是设置表里的偏好值 */
+    getLaunchState(): Promise<LaunchState>
     /** 当前环境是否支持开机自启（= 是否已打包） */
     isLaunchAtLoginSupported(): Promise<boolean>
   }
@@ -104,6 +106,17 @@ export interface Api {
   }
 
   /**
+   * 主窗口自身的事件。
+   *
+   * onHidden：窗口被隐藏（缩到托盘）时触发。
+   * 界面上有弹窗打开时，光把窗口藏起来并不会重置 React 状态 ——
+   * 从托盘恢复后弹窗会原样回来，用户会以为"关不掉"。收到这个事件就关掉弹窗。
+   */
+  window: {
+    onHidden(callback: () => void): () => void
+  }
+
+  /**
    * 订阅数据变更。主进程在每次写操作完成后广播实体名，
    * 渲染进程据此精确失效对应的 query。
    * 返回取消订阅函数 —— 调用方必须在卸载时清理，否则重复挂载会累积监听器。
@@ -123,6 +136,10 @@ export const IPC = {
   appOpenDataDir: 'app:open-data-dir',
   appSetLaunchAtLogin: 'app:set-launch-at-login',
   appLaunchAtLoginSupported: 'app:launch-at-login-supported',
+  appLaunchAtLoginState: 'app:launch-at-login-state',
+
+  /** 主窗口被隐藏时主进程 -> 渲染进程的单向通知 */
+  windowHidden: 'window:hidden',
 
   categoryList: 'category:list',
   categorySave: 'category:save',

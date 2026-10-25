@@ -1,5 +1,8 @@
 node_modules/
+# dist/ 是默认产物目录；dist-*/ 覆盖 --config.directories.output 指定的备用目录
+# （第一次打包时 dist 被系统锁住，用过 dist-v2，结果 118MB 的产物差点进了版本库）
 dist/
+dist-*/
 out/
 release/
 *.log

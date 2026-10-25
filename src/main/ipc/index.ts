@@ -18,9 +18,10 @@ import { removeTask, saveTask } from '../db/repo/task.repo'
 import { createTodo, listTodosByDate, removeTodo, rolloverTodos } from '../db/repo/todo.repo'
 import { transaction } from '../db/sql'
 import {
+  applyLaunchAtLogin,
+  getLaunchState,
   isLaunchAtLoginSupported,
   LAUNCH_AT_LOGIN_KEY,
-  syncLaunchAtLogin,
 } from '../launch-at-login'
 import { toggleTodoWithScore } from '../services/todo.service'
 import {
@@ -153,13 +154,15 @@ export function registerIpcHandlers(): void {
     if (error) throw new Error(`打开数据目录失败：${error}`)
   })
   ipcMain.handle(IPC.appLaunchAtLoginSupported, () => isLaunchAtLoginSupported())
+  ipcMain.handle(IPC.appLaunchAtLoginState, () => getLaunchState())
   ipcMain.handle(IPC.appSetLaunchAtLogin, (_event, enabled: unknown) => {
-    const next = enabled === true
-    setSetting(getDb(), LAUNCH_AT_LOGIN_KEY, next ? '1' : '0')
-    // 设置变更后立刻同步，用户不用等下次启动
-    syncLaunchAtLogin()
-    // 返回是否真的写入了系统：开发环境是 false，界面据此提示「打包后生效」
-    return isLaunchAtLoginSupported()
+    const want = enabled === true
+    // 先看系统接不接受，再决定设置值写什么。
+    // 安全软件拦截时 setLoginItemSettings 不抛错，只是静默失败 ——
+    // 只有回读才知道成没成，设置值必须跟着「实际」走，不能跟着「意图」走。
+    const actual = applyLaunchAtLogin(want)
+    setSetting(getDb(), LAUNCH_AT_LOGIN_KEY, actual.enabled ? '1' : '0')
+    return actual
   })
 
   ipcMain.handle(IPC.categoryList, () => listCategories(getDb()))

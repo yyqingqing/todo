@@ -6,6 +6,7 @@ import Button from '../../components/Button'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { getApi } from '../../lib/api'
 import { cn } from '../../lib/cn'
+import { useErrorToast } from '../../lib/error-store'
 import { queryClient } from '../../lib/query-client'
 import { applyTheme, readThemeMode, type ThemeMode } from '../../lib/theme'
 import {
@@ -68,16 +69,32 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   }
 
   const closeAction = settings?.['app.closeAction'] === 'quit' ? 'quit' : 'tray'
-  const launchAtLogin = settings?.['app.launchAtLogin'] === '1'
 
   const setCloseAction = (value: 'tray' | 'quit'): void => {
     void getApi().setting.set('app.closeAction', value)
   }
 
+  /**
+   * 切换开机自启。
+   *
+   * 关键：按**返回值**（系统实际状态）更新界面，不按点击意图。
+   * 安全软件拦截写入时 setLoginItemSettings 静默失败，如果界面翻到"已开启"
+   * 而系统里没写进去，用户会以为开机会自动启动 —— 那是骗人。
+   */
   const toggleLaunchAtLogin = async (): Promise<void> => {
-    await getApi().app.setLaunchAtLogin(!launchAtLogin)
-    // 设置值由主进程写入，这里手动失效一次让开关立刻反映新状态
-    await queryClient.invalidateQueries({ queryKey: ['settings'] })
+    const want = !launchAtLogin
+    const actual = await getApi().app.setLaunchAtLogin(want)
+    await queryClient.invalidateQueries({ queryKey: ['launch-state'] })
+
+    if (actual.supported && actual.enabled !== want) {
+      useErrorToast
+        .getState()
+        .show(
+          want
+            ? '开机自启没有设置成功。可能是安全软件拦截了启动项写入，请在安全软件里放行本程序后重试。'
+            : '关闭开机自启失败，请检查系统的「启动」设置。',
+        )
+    }
   }
 
   const [resetOpen, setResetOpen] = useState(false)
@@ -101,14 +118,20 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     enabled: open,
   })
 
-  // 是否支持开机自启（= 是否已打包）。开发环境下开关置灰并给出说明
-  const launchSupportQuery = useQuery({
-    queryKey: ['launch-at-login-supported'],
-    queryFn: () => getApi().app.isLaunchAtLoginSupported(),
+  /**
+   * 开机自启的真实状态：读系统（HKCU\...\Run），不是读设置表。
+   *
+   * staleTime: 0 —— 用户可能在任务管理器的「启动」页手动禁用过我们，
+   * 每次打开设置都重新读一次，避免显示过期状态。
+   */
+  const launchStateQuery = useQuery({
+    queryKey: ['launch-state'],
+    queryFn: () => getApi().app.getLaunchState(),
     enabled: open,
-    staleTime: Number.POSITIVE_INFINITY,
+    staleTime: 0,
   })
-  const launchSupported = launchSupportQuery.data === true
+  const launchAtLogin = launchStateQuery.data?.enabled ?? false
+  const launchSupported = launchStateQuery.data?.supported ?? false
 
   // 用原生 <dialog>：焦点陷阱、Esc 关闭、关闭后焦点归还浏览器已经实现好了，
   // 手写这三件事是可访问性 bug 的高发区。
