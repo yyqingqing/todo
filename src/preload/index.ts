@@ -12,6 +12,7 @@ import { contextBridge, type IpcRendererEvent, ipcRenderer } from 'electron'
 const api: Api = {
   app: {
     info: () => ipcRenderer.invoke(IPC.appInfo),
+    openDataDir: () => ipcRenderer.invoke(IPC.appOpenDataDir),
   },
 
   category: {
@@ -30,7 +31,6 @@ const api: Api = {
   task: {
     save: (input) => ipcRenderer.invoke(IPC.taskSave, input),
     remove: (id) => ipcRenderer.invoke(IPC.taskRemove, id),
-    reorder: (planId, orderedIds) => ipcRenderer.invoke(IPC.taskReorder, planId, orderedIds),
   },
 
   todo: {
@@ -38,7 +38,6 @@ const api: Api = {
     create: (input) => ipcRenderer.invoke(IPC.todoCreate, input),
     toggle: (id) => ipcRenderer.invoke(IPC.todoToggle, id),
     remove: (id) => ipcRenderer.invoke(IPC.todoRemove, id),
-    reorder: (date, orderedIds) => ipcRenderer.invoke(IPC.todoReorder, date, orderedIds),
     rollover: (ids, targetDate) => ipcRenderer.invoke(IPC.todoRollover, ids, targetDate),
   },
 

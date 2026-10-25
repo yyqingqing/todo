@@ -29,6 +29,8 @@ import type {
 export interface Api {
   app: {
     info(): Promise<DatabaseInfo>
+    /** 在系统文件管理器里打开数据目录，方便手动备份 qingqing.db */
+    openDataDir(): Promise<void>
   }
 
   category: {
@@ -49,8 +51,6 @@ export interface Api {
   task: {
     save(input: TaskInput): Promise<Task>
     remove(id: string): Promise<void>
-    /** 按给定顺序重写 sort_order，用于同级排序 */
-    reorder(planId: string, orderedIds: string[]): Promise<void>
   }
 
   todo: {
@@ -60,7 +60,6 @@ export interface Api {
     /** 完成 / 取消完成，一个方法覆盖两个方向 */
     toggle(id: string): Promise<TodoWithPlan>
     remove(id: string): Promise<void>
-    reorder(date: DateString, orderedIds: string[]): Promise<void>
     /**
      * 顺延到指定日期，返回实际移动的条数。
      * 只动 scheduled_date，origin_date 永远不变（"拖延几天"的统计靠它）。
@@ -113,6 +112,7 @@ export interface Api {
  */
 export const IPC = {
   appInfo: 'app:info',
+  appOpenDataDir: 'app:open-data-dir',
 
   categoryList: 'category:list',
   categorySave: 'category:save',
@@ -125,13 +125,11 @@ export const IPC = {
 
   taskSave: 'task:save',
   taskRemove: 'task:remove',
-  taskReorder: 'task:reorder',
 
   todoByDate: 'todo:by-date',
   todoCreate: 'todo:create',
   todoToggle: 'todo:toggle',
   todoRemove: 'todo:remove',
-  todoReorder: 'todo:reorder',
   todoRollover: 'todo:rollover',
 
   pickableTasks: 'plan:pickable-tasks',

@@ -22,18 +22,14 @@ export const byTaskCount: ProgressStrategy = {
 
 /**
  * 预留：按预估工时加权。
- * 现在不启用，因为 task.est_minutes 允许为空，没填的话会算出 0，
- * 用户会觉得进度条坏了。等阶段 2 之后有"补全工时"的引导再打开。
+ *
+ * 暂时不实现，也不注册到 STRATEGIES —— 一个「逻辑和按任务数一样、只是 key 不同」的
+ * 空壳策略比没有更糟：万一被启用，用户会以为进度是按工时算的，实际完全不是。
+ * 真要做的时候在这里实现，并保证 task.est_minutes 为空时有明确回退。
  */
-export const byEstimatedMinutes: ProgressStrategy = {
-  key: 'est_minutes',
-  label: '按预估工时',
-  compute: ({ taskTotal, taskDone }) => (taskTotal === 0 ? 0 : taskDone / taskTotal),
-}
 
 export const STRATEGIES: Readonly<Record<string, ProgressStrategy>> = {
   [byTaskCount.key]: byTaskCount,
-  [byEstimatedMinutes.key]: byEstimatedMinutes,
 }
 
 export const DEFAULT_STRATEGY = byTaskCount.key

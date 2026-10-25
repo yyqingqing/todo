@@ -132,9 +132,7 @@ export default function DayDetailDialog({ date, onClose }: DayDetailDialogProps)
         </form>
       ) : (
         <p className="border-t border-line pt-3 text-xs text-ink-muted">
-          {date === todayStr()
-            ? '今天的事项请在「今日」页添加。'
-            : '过去的日期不能补加待办。'}
+          {date === todayStr() ? '今天的事项请在「今日」页添加。' : '过去的日期不能补加待办。'}
         </p>
       )}
 

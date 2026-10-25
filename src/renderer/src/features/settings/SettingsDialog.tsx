@@ -279,6 +279,20 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               {dbInfo ? `v${dbInfo.schemaVersion}` : '—'}
             </span>
           </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-ink-muted">
+              备份：直接拷贝目录里的 qingqing.db（连同 -wal 文件）
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                void getApi().app.openDataDir()
+              }}
+            >
+              打开数据目录
+            </Button>
+          </div>
         </section>
 
         <section className="flex flex-col gap-2 border-t border-line pt-4">

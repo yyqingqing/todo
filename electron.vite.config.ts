@@ -18,6 +18,10 @@ function injectCsp(): Plugin {
     "img-src 'self' data:",
     "font-src 'self' data:",
     "connect-src 'self'",
+    // 下面三条是纵深防御：这个应用不嵌插件、不用 <base>、不期望被 iframe 引用
+    "object-src 'none'",
+    "base-uri 'none'",
+    "frame-ancestors 'none'",
   ].join('; ')
 
   return {

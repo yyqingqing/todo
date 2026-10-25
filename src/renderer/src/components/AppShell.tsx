@@ -6,6 +6,7 @@ import SettingsDialog from '../features/settings/SettingsDialog'
 import { cn } from '../lib/cn'
 import { useDataSync } from '../lib/data-sync'
 import BrandMark from './BrandMark'
+import ErrorToast from './ErrorToast'
 
 const NAV_ITEMS = [
   { to: '/today', label: '今日', icon: ListChecks },
@@ -69,6 +70,7 @@ export default function AppShell() {
       </main>
 
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ErrorToast />
     </div>
   )
 }

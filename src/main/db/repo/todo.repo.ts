@@ -109,17 +109,6 @@ export function removeTodo(db: DatabaseSync, id: string): void {
   db.prepare('DELETE FROM todo_item WHERE id = ?').run(id)
 }
 
-export function reorderTodos(db: DatabaseSync, date: string, orderedIds: string[]): void {
-  transaction(db, () => {
-    const statement = db.prepare(
-      'UPDATE todo_item SET sort_order = ? WHERE id = ? AND scheduled_date = ?',
-    )
-    orderedIds.forEach((id, index) => {
-      statement.run(index, id, date)
-    })
-  })
-}
-
 /**
  * 顺延到指定日期。
  *

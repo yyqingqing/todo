@@ -118,14 +118,4 @@ export function removeTask(db: DatabaseSync, id: string): void {
   })
 }
 
-/** 同级排序：按给定顺序重写 sort_order，整批放在一个事务里 */
-export function reorderTasks(db: DatabaseSync, planId: string, orderedIds: string[]): void {
-  transaction(db, () => {
-    const statement = db.prepare('UPDATE task SET sort_order = ? WHERE id = ? AND plan_id = ?')
-    orderedIds.forEach((id, index) => {
-      statement.run(index, id, planId)
-    })
-  })
-}
-
 export { TASK_SELECT }

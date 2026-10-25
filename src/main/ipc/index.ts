@@ -1,6 +1,6 @@
 import { IPC } from '@shared/ipc-contract'
 import type { CategoryInput, PlanInput, TaskInput, TodoCreateInput } from '@shared/types'
-import { ipcMain } from 'electron'
+import { app, ipcMain, shell } from 'electron'
 import { broadcastDataChanged } from '../broadcast'
 import { getDatabaseInfo, getDb } from '../db/connection'
 import { getMonthView } from '../db/repo/calendar.repo'
@@ -14,14 +14,8 @@ import {
 } from '../db/repo/plan.repo'
 import { getScoreOverview, listRecentScores } from '../db/repo/score.repo'
 import { allSettings, setSetting } from '../db/repo/setting.repo'
-import { removeTask, reorderTasks, saveTask } from '../db/repo/task.repo'
-import {
-  createTodo,
-  listTodosByDate,
-  removeTodo,
-  reorderTodos,
-  rolloverTodos,
-} from '../db/repo/todo.repo'
+import { removeTask, saveTask } from '../db/repo/task.repo'
+import { createTodo, listTodosByDate, removeTodo, rolloverTodos } from '../db/repo/todo.repo'
 import { transaction } from '../db/sql'
 import { toggleTodoWithScore } from '../services/todo.service'
 import {
@@ -147,6 +141,12 @@ function parseTodoInput(raw: unknown): TodoCreateInput {
 
 export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.appInfo, () => getDatabaseInfo())
+  ipcMain.handle(IPC.appOpenDataDir, async () => {
+    // 打开的是 userData 目录本身，不是数据库文件：
+    // 备份时用户通常想连 WAL 文件一起拷走，直接打开目录更省事
+    const error = await shell.openPath(app.getPath('userData'))
+    if (error) throw new Error(`打开数据目录失败：${error}`)
+  })
 
   ipcMain.handle(IPC.categoryList, () => listCategories(getDb()))
   ipcMain.handle(IPC.categorySave, (_event, raw: unknown) => {
@@ -200,14 +200,6 @@ export function registerIpcHandlers(): void {
     removeTask(getDb(), requireString(id, 'id'))
     broadcastDataChanged('task')
   })
-  ipcMain.handle(IPC.taskReorder, (_event, planId: unknown, orderedIds: unknown) => {
-    reorderTasks(
-      getDb(),
-      requireString(planId, 'planId'),
-      parseStringArray(orderedIds, 'orderedIds'),
-    )
-    broadcastDataChanged('task')
-  })
 
   ipcMain.handle(IPC.settingAll, () => allSettings(getDb()))
   ipcMain.handle(IPC.settingSet, (_event, key: unknown, value: unknown) => {
@@ -253,10 +245,6 @@ export function registerIpcHandlers(): void {
   })
   ipcMain.handle(IPC.todoRemove, (_event, id: unknown) => {
     removeTodo(getDb(), requireString(id, 'id'))
-    broadcastDataChanged('todo')
-  })
-  ipcMain.handle(IPC.todoReorder, (_event, date: unknown, orderedIds: unknown) => {
-    reorderTodos(getDb(), requireDate(date, 'date'), parseStringArray(orderedIds, 'orderedIds'))
     broadcastDataChanged('todo')
   })
   ipcMain.handle(IPC.todoRollover, (_event, ids: unknown, targetDate: unknown) => {
