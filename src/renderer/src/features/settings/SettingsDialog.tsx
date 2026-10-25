@@ -378,14 +378,20 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   void toggleLaunchAtLogin()
                 }}
                 className={cn(
-                  'relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40',
+                  'relative h-6 w-11 shrink-0 rounded-full p-0 transition-colors disabled:opacity-40',
                   launchAtLogin ? 'bg-brand' : 'bg-line-strong',
                 )}
               >
+                {/*
+                  必须写死 left-0.5：只写 absolute 而不给 left/right 时，
+                  位置会退化成 static position（受 button 默认 padding 影响），
+                  滑块会被挤到容器外 —— 表现就是整条开关全绿、看不到圆点。
+                  w-11(44) - 圆点 20 - 左 2 - 右 2 = 20px 位移。
+                */}
                 <span
                   className={cn(
-                    'absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform',
-                    launchAtLogin ? 'translate-x-[22px]' : 'translate-x-0.5',
+                    'absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow-sm transition-transform',
+                    launchAtLogin ? 'translate-x-5' : 'translate-x-0',
                   )}
                 />
               </button>
