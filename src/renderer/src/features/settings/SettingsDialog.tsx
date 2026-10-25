@@ -143,9 +143,11 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         // showModal 下点击遮罩，事件目标是 dialog 元素本身
         if (event.target === dialogRef.current) onClose()
       }}
-      className="m-auto w-[min(520px,calc(100vw-48px))] rounded-lg border border-line bg-panel p-0 text-ink shadow-pop backdrop:bg-scrim focus:outline-none"
+      // max-h + flex-col + 内部滚动：原生 dialog 的 UA 样式是 overflow:auto，
+      // 直接溢出会把标题栏一起滚走，关闭按钮就跑到视口外了
+      className="m-auto flex max-h-[85vh] w-[min(520px,calc(100vw-48px))] flex-col overflow-hidden rounded-lg border border-line bg-panel p-0 text-ink shadow-pop backdrop:bg-scrim focus:outline-none"
     >
-      <div className="flex items-center justify-between border-b border-line px-5 py-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-3">
         <h2 id="settings-title" className="text-lg font-semibold">
           设置
         </h2>
@@ -159,7 +161,7 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         </button>
       </div>
 
-      <div className="flex flex-col gap-5 px-5 py-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
         <section className="flex flex-col gap-3">
           <h3 className="text-xs font-medium tracking-wide text-ink-muted">外观</h3>
 
@@ -296,7 +298,7 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               <span className="text-xs text-ink-muted">
                 {launchSupported
                   ? '开机后只显示悬浮窗和托盘，不弹主窗口'
-                  : '开发环境不写入系统（注册的会是 electron.exe，开机会启动一个空白窗口）。打包安装后生效'}
+                  : '打包安装后可开启'}
               </span>
             </div>
             <button
