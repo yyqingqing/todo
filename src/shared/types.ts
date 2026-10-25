@@ -127,11 +127,19 @@ export interface TaskInput {
   title: string
   note?: string | null
   estMinutes?: number | null
+  /**
+   * 可选：直接排到某一天。
+   * 会给这个任务同时创建当天的待办，到那天自动出现在今日清单里，
+   * 之后也不会再出现在「从计划添加」的候选里。
+   */
+  scheduledDate?: DateString | null
 }
 
-/** 带完成状态的任务。done 来自 todo_item，task 自身没有完成态 */
+/** 带完成状态的任务。done 与 scheduledDate 都来自 todo_item */
 export interface TaskWithState extends Task {
   done: boolean
+  /** 已排期的日期；null 表示还没安排到某一天 */
+  scheduledDate: DateString | null
 }
 
 /** 计划详情：一次 IPC 拿全，避免前端瀑布式请求 */

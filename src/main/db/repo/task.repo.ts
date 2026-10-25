@@ -12,11 +12,14 @@ const TASK_SELECT = `
 
 interface TaskRow extends Omit<TaskWithState, 'done'> {
   done: number
+  scheduledDate: string | null
 }
 
 /**
  * 某计划下的任务（不含子计划）。
- * done 来自 todo_item —— task 自身没有完成态，完成判定只有一个来源。
+ *
+ * 完成态和排期日都来自 todo_item —— task 自身没有完成态，完成判定只有一个来源。
+ * 用 LEFT JOIN 一次拿两个字段，避免再写一个 EXISTS 子查询。
  */
 export function listTasksByPlan(db: DatabaseSync, planId: string): TaskWithState[] {
   const rows = all<TaskRow>(
@@ -24,8 +27,10 @@ export function listTasksByPlan(db: DatabaseSync, planId: string): TaskWithState
     `SELECT
        t.id, t.plan_id AS planId, t.title, t.note, t.est_minutes AS estMinutes,
        t.status, t.sort_order AS sortOrder, t.created_at AS createdAt, t.updated_at AS updatedAt,
-       EXISTS(SELECT 1 FROM todo_item ti WHERE ti.task_id = t.id AND ti.status = 'done') AS done
+       ti.scheduled_date AS scheduledDate,
+       CASE WHEN ti.status = 'done' THEN 1 ELSE 0 END AS done
      FROM task t
+     LEFT JOIN todo_item ti ON ti.task_id = t.id
      WHERE t.plan_id = ? AND t.status = 'open'
      ORDER BY t.sort_order ASC, t.created_at ASC`,
     [planId],
@@ -40,8 +45,11 @@ export function getTask(db: DatabaseSync, id: string): TaskWithState | null {
     `SELECT
        t.id, t.plan_id AS planId, t.title, t.note, t.est_minutes AS estMinutes,
        t.status, t.sort_order AS sortOrder, t.created_at AS createdAt, t.updated_at AS updatedAt,
-       EXISTS(SELECT 1 FROM todo_item ti WHERE ti.task_id = t.id AND ti.status = 'done') AS done
-     FROM task t WHERE t.id = ?`,
+       ti.scheduled_date AS scheduledDate,
+       CASE WHEN ti.status = 'done' THEN 1 ELSE 0 END AS done
+     FROM task t
+     LEFT JOIN todo_item ti ON ti.task_id = t.id
+     WHERE t.id = ?`,
     [id],
   )
   return row ? { ...row, done: row.done === 1 } : null

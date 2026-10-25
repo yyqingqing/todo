@@ -3,6 +3,7 @@ import { Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import Button from '../../components/Button'
 import { cn } from '../../lib/cn'
+import { formatDateLabel } from '../../lib/date'
 import { fieldErrorClass, inputClass } from '../../lib/ui'
 import { usePlanMutations } from './api'
 
@@ -15,6 +16,8 @@ interface TaskListProps {
 export default function TaskList({ planId, tasks }: TaskListProps) {
   const { saveTask, removeTask } = usePlanMutations()
   const [title, setTitle] = useState('')
+  /** 留空 = 待安排；选了日期会同时排进那天的今日清单 */
+  const [scheduledDate, setScheduledDate] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const submit = async (): Promise<void> => {
@@ -22,8 +25,13 @@ export default function TaskList({ planId, tasks }: TaskListProps) {
     if (trimmed.length === 0) return
     try {
       setError(null)
-      await saveTask.mutateAsync({ planId, title: trimmed })
+      await saveTask.mutateAsync({
+        planId,
+        title: trimmed,
+        scheduledDate: scheduledDate === '' ? null : scheduledDate,
+      })
       setTitle('')
+      setScheduledDate('')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '添加失败')
     }
@@ -57,7 +65,16 @@ export default function TaskList({ planId, tasks }: TaskListProps) {
           onChange={(event) => setTitle(event.target.value)}
           placeholder="添加一个任务，回车确认"
           aria-label="新任务标题"
-          className={inputClass}
+          className={cn(inputClass, 'min-w-0 flex-1')}
+        />
+        {/* 日期可选：选了就会在那天生成待办，到日子自动出现在今日清单 */}
+        <input
+          type="date"
+          value={scheduledDate}
+          onChange={(event) => setScheduledDate(event.target.value)}
+          aria-label="排到哪一天（可选）"
+          title="选一个日期，到那天会自动出现在今日清单；留空表示待安排"
+          className={cn(inputClass, 'w-[148px] shrink-0')}
         />
         <Button
           type="submit"
@@ -99,6 +116,10 @@ export default function TaskList({ planId, tasks }: TaskListProps) {
                 )}
               >
                 {task.title}
+              </span>
+              {/* 排期状态：让用户知道这条会不会在某天自动出现，还是得手动拉 */}
+              <span className="shrink-0 text-[10px] text-ink-subtle">
+                {task.scheduledDate ? formatDateLabel(task.scheduledDate) : '待安排'}
               </span>
               <button
                 type="button"

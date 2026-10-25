@@ -22,6 +22,7 @@ import {
   reorderTodos,
   rolloverTodos,
 } from '../db/repo/todo.repo'
+import { transaction } from '../db/sql'
 import { toggleTodoWithScore } from '../services/todo.service'
 import {
   getOverlayState,
@@ -107,6 +108,14 @@ function parsePlanInput(raw: unknown): PlanInput {
   }
 }
 
+function optionalDate(value: unknown, field: string): string | null {
+  if (value === undefined || value === null || value === '') return null
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`参数校验失败：${field} 必须是 YYYY-MM-DD 格式`)
+  }
+  return value
+}
+
 function parseTaskInput(raw: unknown): TaskInput {
   const record = asRecord(raw, 'task')
   return {
@@ -115,6 +124,7 @@ function parseTaskInput(raw: unknown): TaskInput {
     title: requireString(record['title'], 'title'),
     note: nullableString(record['note'], 'note'),
     estMinutes: nullableNumber(record['estMinutes'], 'estMinutes'),
+    scheduledDate: optionalDate(record['scheduledDate'], 'scheduledDate'),
   }
 }
 
@@ -164,8 +174,26 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.taskSave, (_event, raw: unknown) => {
-    const task = saveTask(getDb(), parseTaskInput(raw))
+    const input = parseTaskInput(raw)
+    const db = getDb()
+
+    // 建任务时如果指定了日期，同时把它排进那天的清单：
+    // 到那天它自然出现在今日列表，之后也不会再出现在「从计划添加」的候选里。
+    // 必须在同一个事务里 —— 只建了任务没建待办，用户会看到"选了日期但那天没东西"。
+    const task = transaction(db, () => {
+      const saved = saveTask(db, input)
+      if (!input.id && input.scheduledDate) {
+        createTodo(db, {
+          title: saved.title,
+          scheduledDate: input.scheduledDate,
+          taskId: saved.id,
+        })
+      }
+      return saved
+    })
+
     broadcastDataChanged('task')
+    broadcastDataChanged('todo')
     return task
   })
   ipcMain.handle(IPC.taskRemove, (_event, id: unknown) => {
