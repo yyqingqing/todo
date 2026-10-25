@@ -36,29 +36,39 @@ export default function CalendarPage() {
     })
   }
 
+  const now = new Date()
+  const isCurrentMonth = cursor.year === now.getFullYear() && cursor.month === now.getMonth() + 1
+
+  const goToday = (): void => {
+    const target = new Date()
+    setCursor({ year: target.getFullYear(), month: target.getMonth() + 1 })
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <PageHeader
         title="日历"
         meta={`${cursor.year} 年 ${cursor.month} 月`}
         actions={
-          <div className="flex items-center gap-1">
-            <Button size="sm" variant="ghost" onClick={() => shiftMonth(-1)} aria-label="上个月">
-              <ChevronLeft size={16} aria-hidden="true" />
-            </Button>
+          // 动作与导航分组：左边是「跳回今天」，右边是翻月。
+          // 原来「今天」夹在两个箭头中间，长得像状态标签，用户会以为在显示"当前就是今天"。
+          <div className="flex items-center gap-3">
             <Button
               size="sm"
-              variant="ghost"
-              onClick={() => {
-                const now = new Date()
-                setCursor({ year: now.getFullYear(), month: now.getMonth() + 1 })
-              }}
+              onClick={goToday}
+              disabled={isCurrentMonth}
+              title={isCurrentMonth ? '当前就在本月' : '跳回当前月份'}
             >
-              今天
+              回到今天
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => shiftMonth(1)} aria-label="下个月">
-              <ChevronRight size={16} aria-hidden="true" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" onClick={() => shiftMonth(-1)} aria-label="上个月">
+                <ChevronLeft size={16} aria-hidden="true" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => shiftMonth(1)} aria-label="下个月">
+                <ChevronRight size={16} aria-hidden="true" />
+              </Button>
+            </div>
           </div>
         }
       />
