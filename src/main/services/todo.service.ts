@@ -85,6 +85,15 @@ function maybeAwardDailyClear(db: DatabaseSync, date: string, occurredAt: string
   if (stats.total < SCORE_RULES.dailyClearMinItems) return
   if ((stats.pending ?? 0) > 0) return
 
+  // 当天有任务被顺延走，说明清单并没有真正清空 —— 只是把没做完的挪走了。
+  // 没有这条判断，用户可以先顺延掉难的任务、再做完剩下的，稳定拿全清奖励，
+  // 而"全清"本来要表达的是"今天的计划全部落地"。
+  const rolledAway =
+    get<{ count: number }>(db, 'SELECT COUNT(*) AS count FROM rollover_log WHERE from_date = ?', [
+      date,
+    ])?.count ?? 0
+  if (rolledAway > 0) return
+
   insertScore(db, {
     sourceType: 'daily',
     sourceId: date,

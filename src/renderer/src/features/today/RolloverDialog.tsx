@@ -57,9 +57,13 @@ export default function RolloverDialog({ open, todoIds, onClose, onDone }: Rollo
         </>
       }
     >
-      <p className="text-sm text-ink-secondary">
-        {todoIds.length} 条待办会被移到新日期。原来的计划日期会保留下来，用于统计拖延情况。
-      </p>
+      <div className="flex flex-col gap-1.5 text-sm text-ink-secondary">
+        <p>{todoIds.length} 条待办会被移到新日期。原来的计划日期会保留下来，用于统计拖延情况。</p>
+        {/* 把成本写在操作前面，而不是让用户在积分页自己发现少拿了 4 分 */}
+        <p className="text-xs text-ink-muted">
+          顺延后完成按逾期计分（+6 而非 +10），当天也无法再拿到「清单全部完成」奖励。
+        </p>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {QUICK_PICKS.map(({ label, days }) => {
