@@ -6,10 +6,10 @@
  */
 export const PRODUCT = {
   /** 中文名：窗口标题、界面、安装包显示名 */
-  name: '拾阶',
+  name: '青青',
   /** 英文名：userData 目录、appId、安装包文件名。用英文避免中文路径带来的编码问题 */
-  nameEn: 'Stepwise',
+  nameEn: 'Qingqing',
   /** 一句话定位，只出现在设置 - 关于 */
-  tagline: '一步一级，长期可见',
-  appId: 'com.stepwise.app',
+  tagline: '一天一点，慢慢长成',
+  appId: 'com.qingqing.app',
 } as const

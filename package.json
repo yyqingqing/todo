@@ -1,8 +1,8 @@
 {
-  "name": "todo-desktop",
+  "name": "qingqing",
   "version": "0.1.0",
   "private": true,
-  "description": "任务计划 + 每日 todolist 桌面应用",
+  "description": "青青 · 任务计划 + 每日 todolist 桌面应用",
   "main": "./out/main/index.js",
   "scripts": {
     "postinstall": "node scripts/ensure-electron.mjs",
