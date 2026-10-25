@@ -7,7 +7,7 @@ import ConfirmDialog from '../../components/ConfirmDialog'
 import { getApi } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { applyTheme, readThemeMode, type ThemeMode } from '../../lib/theme'
-import { DEFAULT_OVERLAY_OPACITY, readOpacity, useSettings } from '../../lib/use-settings'
+import { DEFAULT_OVERLAY_OPACITY, readOpacity, useOverlayState, useSettings } from '../../lib/use-settings'
 
 const THEME_OPTIONS: ReadonlyArray<{ value: ThemeMode; label: string }> = [
   { value: 'system', label: '跟随系统' },
@@ -35,6 +35,7 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [themeMode, setThemeMode] = useState<ThemeMode>(readThemeMode)
 
   const { data: settings } = useSettings()
+  const { data: overlayState } = useOverlayState()
   const [opacity, setOpacity] = useState(DEFAULT_OVERLAY_OPACITY)
   const saveTimer = useRef<number | null>(null)
 
@@ -170,7 +171,20 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
           <div className="flex items-center justify-between gap-4">
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm text-ink">置于桌面顶端</span>
+              <span className="flex items-center gap-1.5 text-sm text-ink">
+                置于桌面顶端
+                {/* 状态点：让用户一眼看出现在是开着还是关着，而不是靠猜按钮语义 */}
+                <span
+                  className={cn(
+                    'rounded-sm border px-1 py-px text-[10px] leading-normal',
+                    overlayState?.visible
+                      ? 'border-brand/40 bg-brand-soft text-brand'
+                      : 'border-line-strong bg-panel-sunken text-ink-muted',
+                  )}
+                >
+                  {overlayState?.visible ? '已显示' : '已关闭'}
+                </span>
+              </span>
               <span className="text-xs text-ink-muted">
                 可拖到任意位置 · Ctrl+Shift+L 锁定穿透 · Ctrl+Shift+O 显示/隐藏
               </span>
@@ -179,10 +193,13 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               size="sm"
               className="shrink-0"
               onClick={() => {
-                void getApi().overlay.show()
+                // 开关合一的按钮：按当前状态决定是开还是关
+                void (overlayState?.visible
+                  ? getApi().overlay.hide()
+                  : getApi().overlay.show())
               }}
             >
-              打开
+              {overlayState?.visible ? '关闭悬浮窗' : '打开悬浮窗'}
             </Button>
           </div>
 

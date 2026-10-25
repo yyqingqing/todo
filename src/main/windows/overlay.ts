@@ -194,6 +194,14 @@ export function showOverlay(): void {
 
 export function hideOverlay(): void {
   userVisible = false
+  // 关闭时顺手解锁：窗口都藏起来了，锁定状态没有意义；
+  // 保留的话用户下次打开会看到一个点不动的悬浮窗（还得再按一次 Ctrl+Shift+L）
+  if (locked) {
+    locked = false
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.setIgnoreMouseEvents(false)
+    }
+  }
   if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.hide()
   notifyState()
 }
