@@ -3,6 +3,7 @@ import type {
   CategoryInput,
   DatabaseInfo,
   DateString,
+  MonthView,
   OverlayState,
   PickableTask,
   Plan,
@@ -67,6 +68,11 @@ export interface Api {
   /** 从计划里挑任务排进清单时用 */
   pickableTasks(): Promise<PickableTask[]>
 
+  calendar: {
+    /** year 如 2026，month 为 1–12 */
+    month(year: number, month: number): Promise<MonthView>
+  }
+
   overlay: {
     show(): Promise<void>
     hide(): Promise<void>
@@ -121,6 +127,8 @@ export const IPC = {
   todoRollover: 'todo:rollover',
 
   pickableTasks: 'plan:pickable-tasks',
+
+  calendarMonth: 'calendar:month',
 
   settingAll: 'setting:all',
   settingSet: 'setting:set',

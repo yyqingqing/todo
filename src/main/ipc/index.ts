@@ -3,6 +3,7 @@ import type { CategoryInput, PlanInput, TaskInput, TodoCreateInput } from '@shar
 import { ipcMain } from 'electron'
 import { broadcastDataChanged } from '../broadcast'
 import { getDatabaseInfo, getDb } from '../db/connection'
+import { getMonthView } from '../db/repo/calendar.repo'
 import { listCategories, removeCategory, saveCategory } from '../db/repo/category.repo'
 import {
   getPlanDetail,
@@ -186,6 +187,16 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.pickableTasks, () => listPickableTasks(getDb()))
+
+  ipcMain.handle(IPC.calendarMonth, (_event, year: unknown, month: unknown) => {
+    if (typeof year !== 'number' || !Number.isInteger(year)) {
+      throw new Error('参数校验失败：year 必须是整数')
+    }
+    if (typeof month !== 'number' || month < 1 || month > 12) {
+      throw new Error('参数校验失败：month 必须在 1–12 之间')
+    }
+    return getMonthView(getDb(), year, month)
+  })
 
   ipcMain.handle(IPC.todoByDate, (_event, date: unknown) =>
     listTodosByDate(getDb(), requireDate(date, 'date')),

@@ -44,6 +44,10 @@ const api: Api = {
 
   pickableTasks: () => ipcRenderer.invoke(IPC.pickableTasks),
 
+  calendar: {
+    month: (year, month) => ipcRenderer.invoke(IPC.calendarMonth, year, month),
+  },
+
   overlay: {
     show: () => ipcRenderer.invoke(IPC.overlayShow),
     hide: () => ipcRenderer.invoke(IPC.overlayHide),

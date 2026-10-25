@@ -166,3 +166,34 @@ export interface OverlayState {
   locked: boolean
   collapsed: boolean
 }
+
+/* ------------------------------------------------------------------ */
+/* 日历                                                                */
+/* ------------------------------------------------------------------ */
+
+/** 某一天的完成情况。没有待办的日期不会出现在 days 里（稀疏数据） */
+export interface CalendarDay {
+  date: DateString
+  total: number
+  done: number
+}
+
+/** 与某月有交集的计划，用于画本月跨度 */
+export interface CalendarPlan {
+  id: string
+  title: string
+  startDate: DateString
+  endDate: DateString
+  /** 分类色 token，null 表示未分类 */
+  color: string | null
+  /** 0–1，由 stats 算出来 */
+  progress: number
+}
+
+export interface MonthView {
+  year: number
+  /** 1–12 */
+  month: number
+  days: CalendarDay[]
+  plans: CalendarPlan[]
+}

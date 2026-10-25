@@ -49,3 +49,53 @@ export function formatDateLabel(dateStr: string): string {
 export function formatRange(startDate: string, endDate: string): string {
   return `${formatDateLabel(startDate)} – ${formatDateLabel(endDate)}`
 }
+
+function toDateString(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+}
+
+export interface MonthCell {
+  date: string
+  /** 是否属于当前月。前后补齐的格子是 false，界面上要置灰 */
+  inMonth: boolean
+}
+
+/**
+ * 生成月视图网格：周一为第一列，前后补齐到整周。
+ * 中国日历习惯周一起始（工作日连在一起），不是周日。
+ */
+export function buildMonthGrid(year: number, month: number): MonthCell[] {
+  const firstOfMonth = new Date(year, month - 1, 1)
+  // JS 的 getDay() 里 0 是周日；转成「周一 = 0」的索引
+  const leading = (firstOfMonth.getDay() + 6) % 7
+  const daysInMonth = new Date(year, month, 0).getDate()
+
+  const cells: MonthCell[] = []
+
+  for (let offset = leading; offset > 0; offset -= 1) {
+    cells.push({ date: toDateString(new Date(year, month - 1, 1 - offset)), inMonth: false })
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    cells.push({ date: toDateString(new Date(year, month - 1, day)), inMonth: true })
+  }
+
+  while (cells.length % 7 !== 0) {
+    const lastCell = cells.at(-1)
+    if (!lastCell) break
+    const [y = 1970, m = 1, d = 1] = lastCell.date.split('-').map(Number)
+    cells.push({ date: toDateString(new Date(y, m - 1, d + 1)), inMonth: false })
+  }
+
+  return cells
+}
+
+/** 某月共有多少天 */
+export function daysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate()
+}
+
+/** "2026-10-25" -> 25 */
+export function dayOfMonth(dateStr: string): number {
+  return Number(dateStr.slice(8, 10))
+}

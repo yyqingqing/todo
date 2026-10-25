@@ -2,11 +2,11 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import AppShell from './components/AppShell'
+import CalendarPage from './features/calendar/CalendarPage'
 import PlansPage from './features/plans/PlansPage'
 import TodayPage from './features/today/TodayPage'
 import { queryClient } from './lib/query-client'
 import { watchSystemTheme } from './lib/theme'
-import CalendarPage from './pages/CalendarPage'
 import ScorePage from './pages/ScorePage'
 
 /**
