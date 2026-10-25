@@ -96,9 +96,10 @@ const badMonth = await page.evaluate(async () =>
 check('非法月份被拒', badMonth === 'rejected')
 
 // 跨月计划应只返回与本月有交集的
+const adjacentMonth = result.month === 12 ? 1 : result.month + 1
 const crossMonth = await page.evaluate(
-  ({ year, month }) => window.api.calendar.month(year === 1 ? 12 : 1, year === 1 ? 1 : 1),
-  { year: result.year, month: result.month },
+  ({ year, month }) => window.api.calendar.month(year, month),
+  { year: result.year, month: adjacentMonth },
 )
 check('相邻月份不含该计划（交集过滤生效）', !crossMonth.plans.some((p) => p.id === result.planId))
 

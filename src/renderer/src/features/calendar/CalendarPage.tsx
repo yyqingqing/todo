@@ -196,7 +196,14 @@ function CompletionRing({ ratio, complete }: { ratio: number; complete: boolean 
   return (
     <svg width={20} height={20} viewBox="0 0 20 20" aria-hidden="true">
       {/* 底环用 line-strong：用 line 的话与画布太接近，半圈进度会看成"没有数据" */}
-      <circle cx={10} cy={10} r={radius} fill="none" stroke="var(--line-strong)" strokeWidth={2.2} />
+      <circle
+        cx={10}
+        cy={10}
+        r={radius}
+        fill="none"
+        stroke="var(--line-strong)"
+        strokeWidth={2.2}
+      />
       {ratio > 0 ? (
         <circle
           cx={10}

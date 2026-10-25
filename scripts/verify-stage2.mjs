@@ -93,7 +93,7 @@ const emptyTitle = await page.evaluate(
       .catch((e) => String(e.message)),
   seed.week1Id,
 )
-check('空标题被拒', emptyTitle === 'no-error' ? false : true, emptyTitle.slice(0, 40))
+check('空标题被拒', emptyTitle !== 'no-error', emptyTitle.slice(0, 40))
 
 const badRange = await page.evaluate(async () =>
   window.api.plan

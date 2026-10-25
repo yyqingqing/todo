@@ -12,6 +12,7 @@ import {
   removePlan,
   savePlan,
 } from '../db/repo/plan.repo'
+import { getScoreOverview, listRecentScores } from '../db/repo/score.repo'
 import { allSettings, setSetting } from '../db/repo/setting.repo'
 import { removeTask, reorderTasks, saveTask } from '../db/repo/task.repo'
 import {
@@ -20,8 +21,8 @@ import {
   removeTodo,
   reorderTodos,
   rolloverTodos,
-  toggleTodo,
 } from '../db/repo/todo.repo'
+import { toggleTodoWithScore } from '../services/todo.service'
 import {
   getOverlayState,
   hideOverlay,
@@ -198,6 +199,12 @@ export function registerIpcHandlers(): void {
     return getMonthView(getDb(), year, month)
   })
 
+  ipcMain.handle(IPC.scoreRecent, (_event, limit: unknown) => {
+    const size = typeof limit === 'number' && limit > 0 ? Math.min(Math.floor(limit), 500) : 100
+    return listRecentScores(getDb(), size)
+  })
+  ipcMain.handle(IPC.scoreOverview, () => getScoreOverview(getDb()))
+
   ipcMain.handle(IPC.todoByDate, (_event, date: unknown) =>
     listTodosByDate(getDb(), requireDate(date, 'date')),
   )
@@ -209,8 +216,10 @@ export function registerIpcHandlers(): void {
   // 完成状态会改变计划进度，而 data-sync 里 todo 的失效范围已经包含 plan，
   // 所以这里只广播一次 todo 就够了
   ipcMain.handle(IPC.todoToggle, (_event, id: unknown) => {
-    const todo = toggleTodo(getDb(), requireString(id, 'id'))
+    // 走 service 而不是直接改状态：记账和改状态必须在同一个事务里
+    const todo = toggleTodoWithScore(getDb(), requireString(id, 'id'))
     broadcastDataChanged('todo')
+    broadcastDataChanged('score')
     return todo
   })
   ipcMain.handle(IPC.todoRemove, (_event, id: unknown) => {

@@ -4,10 +4,10 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import AppShell from './components/AppShell'
 import CalendarPage from './features/calendar/CalendarPage'
 import PlansPage from './features/plans/PlansPage'
+import ScorePage from './features/score/ScorePage'
 import TodayPage from './features/today/TodayPage'
 import { queryClient } from './lib/query-client'
 import { watchSystemTheme } from './lib/theme'
-import ScorePage from './pages/ScorePage'
 
 /**
  * 桌面应用用 HashRouter：生产环境是 file:// 加载，BrowserRouter 的路径路由会 404。

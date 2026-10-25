@@ -130,7 +130,9 @@ export function rolloverTodos(db: DatabaseSync, ids: string[], targetDate: strin
 
     for (const id of ids) {
       const todo = getTodo(db, id)
-      if (!todo || todo.status !== 'pending') continue
+      // 分成两个 if 而不是合并成 `!todo || ...`：合并后 TS 无法把 todo 收窄成非空
+      if (!todo) continue
+      if (todo.status !== 'pending') continue
       if (todo.scheduledDate === targetDate) continue
 
       db.prepare(

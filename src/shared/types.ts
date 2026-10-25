@@ -197,3 +197,31 @@ export interface MonthView {
   days: CalendarDay[]
   plans: CalendarPlan[]
 }
+
+/* ------------------------------------------------------------------ */
+/* 积分                                                                */
+/* ------------------------------------------------------------------ */
+
+/** 一条积分流水。append-only，取消完成时追加负数而不是删除原记录 */
+export interface ScoreEntry {
+  id: string
+  sourceType: string
+  sourceId: string
+  /** 见 shared/domain/score.ts 的 SCORE_REASONS */
+  reason: string
+  /** 正数为得分，负数为冲正 */
+  points: number
+  occurredAt: Timestamp
+  /** 入账日（本地日期），用于日/周/月榜 */
+  settledDate: DateString
+  /** 当时的标题快照，列表里显示「哪条待办 / 哪个计划」 */
+  title: string | null
+}
+
+export interface ScoreOverview {
+  total: number
+  today: number
+  week: number
+  /** 最近若干天每天的分值，稀疏（没有得分的天不出现） */
+  daily: { date: DateString; points: number }[]
+}

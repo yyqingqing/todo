@@ -48,6 +48,11 @@ const api: Api = {
     month: (year, month) => ipcRenderer.invoke(IPC.calendarMonth, year, month),
   },
 
+  score: {
+    recent: (limit) => ipcRenderer.invoke(IPC.scoreRecent, limit),
+    overview: () => ipcRenderer.invoke(IPC.scoreOverview),
+  },
+
   overlay: {
     show: () => ipcRenderer.invoke(IPC.overlayShow),
     hide: () => ipcRenderer.invoke(IPC.overlayHide),

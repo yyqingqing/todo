@@ -10,6 +10,8 @@ import type {
   PlanDetail,
   PlanInput,
   PlanNode,
+  ScoreEntry,
+  ScoreOverview,
   Task,
   TaskInput,
   TodoCreateInput,
@@ -73,6 +75,12 @@ export interface Api {
     month(year: number, month: number): Promise<MonthView>
   }
 
+  score: {
+    /** 最近的流水，按时间倒序 */
+    recent(limit: number): Promise<ScoreEntry[]>
+    overview(): Promise<ScoreOverview>
+  }
+
   overlay: {
     show(): Promise<void>
     hide(): Promise<void>
@@ -129,6 +137,9 @@ export const IPC = {
   pickableTasks: 'plan:pickable-tasks',
 
   calendarMonth: 'calendar:month',
+
+  scoreRecent: 'score:recent',
+  scoreOverview: 'score:overview',
 
   settingAll: 'setting:all',
   settingSet: 'setting:set',
