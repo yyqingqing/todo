@@ -1,50 +1,32 @@
 ; 卸载时的清理。
 ;
-; 三件事：
-; 1. 删掉开机自启项 —— 不删的话注册表里会留一条指向已删除 exe 的记录，
-;    每次开机 Windows 都会尝试启动一个不存在的程序（用户会看到报错弹窗）
-; 2. 数据库默认在 $INSTDIR\data，卸载器会 `RMDir /r $INSTDIR` 把整个目录删干净，
-;    所以要在删除之前抢救（customUnInstall 在 uninstaller.nsh 第 156 行执行，
-;    删除在 187 行，时机是够的）
-; 3. 清掉 Electron 的 userData 缓存；但如果数据库回落到这里（装在 Program Files
-;    这类只读位置时会发生），必须先备份再删，不能把数据一起清掉
+; 数据库不在安装目录里 —— 它在 `<安装目录>\..\Qingqing-Data`（同级目录）。
+; 这么做是因为卸载器会 `RMDir /r $INSTDIR`，而「覆盖安装」= 先卸载再装，
+; 数据放里面必然每次更新都丢。放在同级目录，卸载器根本碰不到。
+;
+; 这里只做两件事：
+; 1. 清掉开机自启项（否则注册表留下指向已删 exe 的记录，每次开机报错）
+; 2. 告诉用户数据还在哪，别以为卸载就把数据一起删了
 
 !macro customUnInstall
-  ; ---- 1. 开机自启 ----
-  ; 实测发现：Windows 上 setLoginItemSettings 写的值名是 AppUserModelId，
-  ; 本项目是 com.qingqing.app（来自 electronApp.setAppUserModelId），
-  ; **不是** app.getName()。第一版只删 "Qingqing"，卸载后会残留一条
-  ; 指向已删除 exe 的启动项，每次开机 Windows 都会报错。
-  ; 三个名字都删，兼容不同版本与改名前的残留。
+  ; ---- 开机自启 ----
+  ; Windows 上 setLoginItemSettings 写的值名是 AppUserModelId
+  ; （本项目 com.qingqing.app），不是 app.getName()。
+  ; 三个名字都删，兼容改名前的残留。
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "com.qingqing.app"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Qingqing"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "青青"
 
-  ; ---- 2. 数据库（正常位置：安装目录的 data/） ----
-  ${if} ${FileExists} "$INSTDIR\data\qingqing.db"
-    ; /SD IDYES：静默卸载（/S）时没有交互界面，必须给默认按钮，
-    ; 否则卸载器会卡在这个对话框上永远不结束。默认选「备份」是安全的一侧。
-    MessageBox MB_YESNO|MB_ICONQUESTION \
-      "检测到数据文件（计划、任务、积分记录）。$\r$\n$\r$\n是否备份到「文档\青青」？$\r$\n选择「否」将连同程序一起删除，无法恢复。" \
-      /SD IDYES \
-      IDNO qingqingSkipBackup
-
-    CreateDirectory "$DOCUMENTS\青青"
-    CopyFiles /SILENT "$INSTDIR\data\*.*" "$DOCUMENTS\青青"
-    DetailPrint "数据已备份到 $DOCUMENTS\青青"
-
-    qingqingSkipBackup:
+  ; ---- 数据提示 ----
+  ; 数据目录不会被删，但用户需要知道它在哪。
+  ; /SD IDOK：静默卸载时不能卡在对话框上
+  ${if} ${FileExists} "$INSTDIR\..\Qingqing-Data\qingqing.db"
+    MessageBox MB_OK|MB_ICONINFORMATION \
+      "程序已卸载。$\r$\n$\r$\n你的数据仍保留在：$\r$\n$INSTDIR\..\Qingqing-Data$\r$\n$\r$\n如需彻底清除，请手动删除该文件夹。" \
+      /SD IDOK
   ${endIf}
 
-  ; ---- 3. userData 缓存 ----
-  ; 数据库回落到这里时（只读安装位置），先备份再删
-  ${if} ${FileExists} "$APPDATA\Qingqing\qingqing.db"
-    CreateDirectory "$DOCUMENTS\青青"
-    CopyFiles /SILENT "$APPDATA\Qingqing\qingqing.db*" "$DOCUMENTS\青青"
-    DetailPrint "userData 中的数据库已备份到 $DOCUMENTS\青青"
-  ${endIf}
-
-  ; 缓存（Local Storage / Session / Crashpad）没有保留价值，直接清掉
+  ; ---- Electron 缓存（没有保留价值） ----
   RMDir /r "$APPDATA\Qingqing"
   RMDir /r "$LOCALAPPDATA\Qingqing"
 !macroend

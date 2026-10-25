@@ -12,18 +12,24 @@ let databasePath = ''
 /**
  * 数据库放在哪。
  *
- * 打包后优先放**安装目录下的 data/**：用户把应用装到 D 盘，数据也在 D 盘，
- * 不往 C 盘堆。开发时仍用 userData（避免污染仓库）。
+ * 打包后放在**安装目录的上一级**：`<安装目录>\..\Qingqing-Data`。
  *
- * 装到 Program Files 这类只读位置时普通用户写不进去，会回落到 userData ——
- * 宁可数据在 C 盘，也不能起来就崩。写入用探针文件实测，不靠猜权限。
+ * 为什么不放在安装目录里面：electron-builder 的卸载器会 `RMDir /r $INSTDIR`
+ * 把整个安装目录删干净，而「覆盖安装」= 先卸载再装 —— 数据在 $INSTDIR 里
+ * 就意味着每次更新版本都会丢数据。试过在 customUnInstall 里把 data 挪走
+ * 再挪回来，实测靠不住（那个钩子在覆盖安装流程里拿不到可靠时机）。
+ * 放在同级目录，卸载器根本碰不到，这是最稳的。
  *
- * 卸载时的保护在 build/installer.nsh 里：检测到 data 目录会问用户是否保留。
+ * 装到 Program Files 这类只读位置时，上一级同样不可写，会回落到 userData ——
+ * 宁可数据在 C 盘，也不能起来就崩。写权限用探针文件实测，不靠猜。
+ *
+ * 开发时仍用 userData，避免污染仓库。
  */
 function resolveDatabaseDir(): string {
   if (!app.isPackaged) return app.getPath('userData')
 
-  const portableDir = join(dirname(app.getPath('exe')), 'data')
+  const exeDir = dirname(app.getPath('exe'))
+  const portableDir = join(exeDir, '..', 'Qingqing-Data')
   try {
     mkdirSync(portableDir, { recursive: true })
     const probe = join(portableDir, '.writable')
