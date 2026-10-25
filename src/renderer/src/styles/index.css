@@ -146,3 +146,13 @@
     }
   }
 }
+
+/*
+ * 悬浮窗：窗口本身是透明的，根元素只画中间那张卡片，圆角外面必须透出桌面。
+ * 放在 @layer 之外是有意的 —— 无 layer 的规则优先于 @layer base 里的 body 背景，
+ * 否则上面那条 `body { background-color: var(--canvas) }` 会盖掉透明。
+ */
+[data-window="overlay"],
+[data-window="overlay"] body {
+  background-color: transparent;
+}

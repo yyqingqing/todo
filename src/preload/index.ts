@@ -1,5 +1,6 @@
 import type { Api } from '@shared/ipc-contract'
 import { IPC } from '@shared/ipc-contract'
+import type { OverlayState } from '@shared/types'
 import { contextBridge, type IpcRendererEvent, ipcRenderer } from 'electron'
 
 /**
@@ -43,6 +44,14 @@ const api: Api = {
 
   pickableTasks: () => ipcRenderer.invoke(IPC.pickableTasks),
 
+  overlay: {
+    show: () => ipcRenderer.invoke(IPC.overlayShow),
+    hide: () => ipcRenderer.invoke(IPC.overlayHide),
+    toggleLocked: () => ipcRenderer.invoke(IPC.overlayToggleLocked),
+    toggleCollapsed: () => ipcRenderer.invoke(IPC.overlayToggleCollapsed),
+    getState: () => ipcRenderer.invoke(IPC.overlayGetState),
+  },
+
   setting: {
     all: () => ipcRenderer.invoke(IPC.settingAll),
     set: (key, value) => ipcRenderer.invoke(IPC.settingSet, key, value),
@@ -57,6 +66,16 @@ const api: Api = {
     // 必须返回解绑函数：渲染进程重复挂载（HMR、StrictMode）时不清理会累积监听器
     return () => {
       ipcRenderer.removeListener(IPC.dataChanged, handler)
+    }
+  },
+
+  onOverlayStateChanged: (callback) => {
+    const handler = (_event: IpcRendererEvent, state: OverlayState): void => {
+      callback(state)
+    }
+    ipcRenderer.on(IPC.overlayState, handler)
+    return () => {
+      ipcRenderer.removeListener(IPC.overlayState, handler)
     }
   },
 }

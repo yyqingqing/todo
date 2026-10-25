@@ -1,9 +1,16 @@
 import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { PRODUCT } from '@shared/product'
-import { app, BrowserWindow, nativeTheme, session, shell } from 'electron'
+import { app, BrowserWindow, globalShortcut, nativeTheme, session, shell } from 'electron'
 import { closeDatabase, openDatabase } from './db/connection'
 import { registerIpcHandlers } from './ipc'
+import {
+  disposeOverlay,
+  getOverlayState,
+  hideOverlay,
+  showOverlay,
+  toggleOverlayLocked,
+} from './windows/overlay'
 
 /**
  * 窗口级背景色。Electron 建窗口时就要这个值，此时 CSS 变量还没加载。
@@ -110,6 +117,16 @@ if (!app.requestSingleInstanceLock()) {
 
     createMainWindow()
 
+    // 悬浮窗锁定后自己点不到自己的按钮，必须有窗口外的入口。
+    // 快捷键是成本最低的那个；阶段 8 的托盘菜单会是第二个。
+    globalShortcut.register('CommandOrControl+Shift+L', () => {
+      toggleOverlayLocked()
+    })
+    globalShortcut.register('CommandOrControl+Shift+O', () => {
+      if (getOverlayState().visible) hideOverlay()
+      else showOverlay()
+    })
+
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
     })
@@ -121,6 +138,8 @@ if (!app.requestSingleInstanceLock()) {
 
   // 退出前关闭连接：确保 WAL 落盘、文件句柄释放
   app.on('will-quit', () => {
+    disposeOverlay()
+    globalShortcut.unregisterAll()
     closeDatabase()
   })
 }

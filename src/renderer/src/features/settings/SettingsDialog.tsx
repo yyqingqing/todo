@@ -2,6 +2,7 @@ import { PRODUCT } from '@shared/product'
 import { useQuery } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import Button from '../../components/Button'
 import { getApi } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { applyTheme, readThemeMode, type ThemeMode } from '../../lib/theme'
@@ -105,6 +106,27 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </button>
               ))}
             </fieldset>
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-2 border-t border-line pt-4">
+          <h3 className="text-xs font-medium tracking-wide text-ink-muted">悬浮窗</h3>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm text-ink">置于桌面顶端</span>
+              <span className="text-xs text-ink-muted">
+                半透明、可拖到任意位置 · Ctrl+Shift+L 锁定穿透 · Ctrl+Shift+O 显示/隐藏
+              </span>
+            </div>
+            <Button
+              size="sm"
+              className="shrink-0"
+              onClick={() => {
+                void getApi().overlay.show()
+              }}
+            >
+              打开
+            </Button>
           </div>
         </section>
 

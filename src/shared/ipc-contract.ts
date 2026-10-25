@@ -3,6 +3,7 @@ import type {
   CategoryInput,
   DatabaseInfo,
   DateString,
+  OverlayState,
   PickableTask,
   Plan,
   PlanDetail,
@@ -13,7 +14,6 @@ import type {
   TodoCreateInput,
   TodoWithPlan,
 } from './types'
-
 /**
  * 主进程与渲染进程之间的唯一契约。
  *
@@ -67,6 +67,16 @@ export interface Api {
   /** 从计划里挑任务排进清单时用 */
   pickableTasks(): Promise<PickableTask[]>
 
+  overlay: {
+    show(): Promise<void>
+    hide(): Promise<void>
+    /** 切换点击穿透。返回切换后的锁定状态 */
+    toggleLocked(): Promise<boolean>
+    /** 折叠成只有标题条，或展开 */
+    toggleCollapsed(): Promise<boolean>
+    getState(): Promise<OverlayState>
+  }
+
   setting: {
     all(): Promise<Record<string, string>>
     set(key: string, value: string): Promise<void>
@@ -78,6 +88,9 @@ export interface Api {
    * 返回取消订阅函数 —— 调用方必须在卸载时清理，否则重复挂载会累积监听器。
    */
   onDataChanged(callback: (entity: string) => void): () => void
+
+  /** 订阅悬浮窗状态变化（锁定 / 折叠）。同样返回解绑函数 */
+  onOverlayStateChanged(callback: (state: OverlayState) => void): () => void
 }
 
 /**
@@ -111,6 +124,14 @@ export const IPC = {
 
   settingAll: 'setting:all',
   settingSet: 'setting:set',
+
+  overlayShow: 'overlay:show',
+  overlayHide: 'overlay:hide',
+  overlayToggleLocked: 'overlay:toggle-locked',
+  overlayToggleCollapsed: 'overlay:toggle-collapsed',
+  overlayGetState: 'overlay:get-state',
+  /** 主 → 渲染：悬浮窗状态变化 */
+  overlayState: 'overlay:state',
 
   /** 主 → 渲染 的单向广播 */
   dataChanged: 'data:changed',

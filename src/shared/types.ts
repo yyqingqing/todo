@@ -157,3 +157,10 @@ export interface PickableTask {
   planId: string
   planTitle: string
 }
+
+/** 悬浮窗状态。锁定时鼠标事件穿透到下层窗口，只能看不能点 */
+export interface OverlayState {
+  visible: boolean
+  locked: boolean
+  collapsed: boolean
+}

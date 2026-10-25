@@ -21,6 +21,13 @@ import {
   rolloverTodos,
   toggleTodo,
 } from '../db/repo/todo.repo'
+import {
+  getOverlayState,
+  hideOverlay,
+  showOverlay,
+  toggleOverlayCollapsed,
+  toggleOverlayLocked,
+} from '../windows/overlay'
 
 /**
  * 注册所有 IPC handler。
@@ -210,4 +217,10 @@ export function registerIpcHandlers(): void {
     broadcastDataChanged('todo')
     return moved
   })
+
+  ipcMain.handle(IPC.overlayShow, () => showOverlay())
+  ipcMain.handle(IPC.overlayHide, () => hideOverlay())
+  ipcMain.handle(IPC.overlayToggleLocked, () => toggleOverlayLocked())
+  ipcMain.handle(IPC.overlayToggleCollapsed, () => toggleOverlayCollapsed())
+  ipcMain.handle(IPC.overlayGetState, () => getOverlayState())
 }

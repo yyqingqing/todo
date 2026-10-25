@@ -1,26 +1,13 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import AppShell from './components/AppShell'
 import PlansPage from './features/plans/PlansPage'
 import TodayPage from './features/today/TodayPage'
+import { queryClient } from './lib/query-client'
 import { watchSystemTheme } from './lib/theme'
 import CalendarPage from './pages/CalendarPage'
 import ScorePage from './pages/ScorePage'
-
-/**
- * 本地 IPC 数据也走 TanStack Query：缓存、失效、并发去重都是现成的。
- * 阶段 2 起所有写操作完成后由主进程广播，前端 invalidateQueries 精确失效。
- */
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30_000,
-      retry: false,
-      refetchOnWindowFocus: false,
-    },
-  },
-})
 
 /**
  * 桌面应用用 HashRouter：生产环境是 file:// 加载，BrowserRouter 的路径路由会 404。
