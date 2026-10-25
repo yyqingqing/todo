@@ -21,8 +21,10 @@ win:
       arch:
         - x64
   icon: build/icon.png
-  # 应用清单里的名称，任务管理器与通知里显示的就是它
-  artifactName: ${productName}-${version}-setup.${ext}
+  # 安装包文件名必须是纯 ASCII：GitHub release 附件对中文支持不好，
+  # 上传后 "青青-0.1.0-setup.exe" 会被削成 "-0.1.0-setup.exe"。
+  # 界面、快捷方式、卸载项仍然用 productName（青青），只有文件名走英文。
+  artifactName: Qingqing-${version}-setup.${ext}
 
 nsis:
   # 不做一键安装：用户要能选安装位置
