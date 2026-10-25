@@ -8,18 +8,6 @@ function pad2(value: number): string {
   return String(value).padStart(2, '0')
 }
 
-function flatten(nodes: readonly PlanNode[]): PlanNode[] {
-  const result: PlanNode[] = []
-  const walk = (list: readonly PlanNode[]): void => {
-    for (const node of list) {
-      result.push(node)
-      walk(node.children)
-    }
-  }
-  walk(nodes)
-  return result
-}
-
 /**
  * 月视图数据。
  *
@@ -48,24 +36,30 @@ export function getMonthView(db: DatabaseSync, year: number, month: number): Mon
     [first, last],
   )
 
-  const categoryColors = new Map(
-    all<{ id: string; color: string }>(db, 'SELECT id, color FROM category').map((row) => [
-      row.id,
-      row.color,
-    ]),
-  )
+  // 颜色按根计划序号分配（与时间线一致）：同一棵树同色。
+  // 不用分类色 —— 未分类的计划会全部兜底成第一个颜色，几个不相干的计划看起来像同一条线。
+  const roots = listPlanTree(db)
+  const plans: CalendarPlan[] = []
 
-  const plans: CalendarPlan[] = flatten(listPlanTree(db))
-    .filter((plan) => plan.status === 'active' && plan.startDate <= last && plan.endDate >= first)
-    .map((plan) => ({
-      id: plan.id,
-      parentId: plan.parentId,
-      title: plan.title,
-      startDate: plan.startDate,
-      endDate: plan.endDate,
-      color: plan.categoryId ? (categoryColors.get(plan.categoryId) ?? null) : null,
-      progress: computeProgress(plan.stats),
-    }))
+  roots.forEach((root, rootIndex) => {
+    const walk = (node: PlanNode): void => {
+      const inRange = node.status === 'active' && node.startDate <= last && node.endDate >= first
+      if (inRange) {
+        plans.push({
+          id: node.id,
+          parentId: node.parentId,
+          rootIndex,
+          title: node.title,
+          startDate: node.startDate,
+          endDate: node.endDate,
+          progress: computeProgress(node.stats),
+        })
+      }
+      // 即使父计划不在本月范围内，子计划也可能在，所以继续往下走
+      node.children.forEach(walk)
+    }
+    walk(root)
+  })
 
   return { year, month, days, plans }
 }

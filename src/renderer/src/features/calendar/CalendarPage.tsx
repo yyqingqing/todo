@@ -7,7 +7,7 @@ import ErrorState from '../../components/ErrorState'
 import PageHeader from '../../components/PageHeader'
 import { getApi } from '../../lib/api'
 import { cn } from '../../lib/cn'
-import { colorStyle, safeColorToken } from '../../lib/colors'
+import { treeColor } from '../../lib/colors'
 import { buildMonthGrid, dayOfMonth, daysInMonth, todayStr } from '../../lib/date'
 import DayDetailDialog from './DayDetailDialog'
 
@@ -238,6 +238,8 @@ function PlanSpanRow({ plan, year, month }: { plan: CalendarPlan; year: number; 
   const left = ((startDay - 1) / total) * 100
   const width = ((endDay - startDay + 1) / total) * 100
   const percent = Math.round(plan.progress * 100)
+  // 与时间线一致：颜色标识一棵计划树，不是分类
+  const color = treeColor(plan.rootIndex)
 
   return (
     <li className="flex items-center gap-3">
@@ -253,7 +255,7 @@ function PlanSpanRow({ plan, year, month }: { plan: CalendarPlan; year: number; 
           style={{
             left: `${left}%`,
             width: `${width}%`,
-            backgroundColor: `var(--${safeColorToken(plan.color)})`,
+            backgroundColor: `var(--${color})`,
           }}
         />
         {/* 已完成的进度叠在跨度条上，一眼同时看到"区间"和"进度" */}
@@ -262,7 +264,7 @@ function PlanSpanRow({ plan, year, month }: { plan: CalendarPlan; year: number; 
           style={{
             left: `${left}%`,
             width: `${(width * Math.min(1, plan.progress)).toFixed(2)}%`,
-            ...colorStyle(plan.color),
+            backgroundColor: `var(--${color})`,
           }}
         />
       </div>

@@ -193,16 +193,7 @@ export function savePlan(db: DatabaseSync, input: PlanInput): Plan {
        SET parent_id = ?, category_id = ?, title = ?, note = ?,
            start_date = ?, end_date = ?, updated_at = ?
        WHERE id = ?`,
-    ).run(
-      input.parentId,
-      categoryId,
-      title,
-      note,
-      input.startDate,
-      input.endDate,
-      now,
-      input.id,
-    )
+    ).run(input.parentId, categoryId, title, note, input.startDate, input.endDate, now, input.id)
 
     return getPlan(db, input.id) as Plan
   }

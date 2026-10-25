@@ -23,3 +23,14 @@ export function safeColorToken(color: string | null | undefined): CategoryColor 
 export function colorStyle(color: string | null | undefined): { backgroundColor: string } {
   return { backgroundColor: `var(--${safeColorToken(color)})` }
 }
+
+/**
+ * 按「计划树序号」取色。
+ *
+ * 时间线和日历都用它：主视觉单元是一棵计划树，同一棵树的子项必须同色。
+ * 不用分类色，因为未分类的计划会全部兜底成第一个颜色，
+ * 几个毫不相干的计划看起来会像同一条线。
+ */
+export function treeColor(index: number): CategoryColor {
+  return CATEGORY_COLORS[index % CATEGORY_COLORS.length] ?? 'cat-1'
+}

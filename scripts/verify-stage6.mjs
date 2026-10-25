@@ -79,7 +79,7 @@ check(
   '本月计划列表包含该计划',
   view.plans.length === 1 && view.plans[0]?.title === '三个月背完一本单词书',
 )
-check('计划带分类色', view.plans[0]?.color === 'cat-2', String(view.plans[0]?.color))
+check('计划带根计划序号（颜色按计划树分配）', view.plans[0]?.rootIndex === 0, String(view.plans[0]?.rootIndex))
 check(
   '计划进度为 50%（2 条任务里 1 条完成）',
   view.plans[0]?.progress === 0.5,

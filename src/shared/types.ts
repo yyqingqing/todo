@@ -187,11 +187,11 @@ export interface CalendarPlan {
   id: string
   /** null 表示是顶层计划，非 null 是子计划。界面上要分开计数 */
   parentId: string | null
+  /** 所属根计划的序号，决定跨条颜色（与时间线一致：同一棵树同色） */
+  rootIndex: number
   title: string
   startDate: DateString
   endDate: DateString
-  /** 分类色 token，null 表示未分类 */
-  color: string | null
   /** 0–1，由 stats 算出来 */
   progress: number
 }
