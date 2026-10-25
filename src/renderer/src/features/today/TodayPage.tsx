@@ -6,10 +6,13 @@ import ErrorState from '../../components/ErrorState'
 import PageHeader from '../../components/PageHeader'
 import ProgressBar from '../../components/ProgressBar'
 import { getApi } from '../../lib/api'
+import { cn } from '../../lib/cn'
 import { formatDateLabel, todayLabel } from '../../lib/date'
 import { fieldErrorClass, inputClass } from '../../lib/ui'
 import { useOverlayState } from '../../lib/use-settings'
 import { useToday } from '../../lib/use-today'
+import { usePlanTree } from '../plans/api'
+import { flattenTree } from '../plans/tree-utils'
 import { useTodoMutations, useTodos } from './api'
 import PickTaskDialog from './PickTaskDialog'
 import RolloverDialog from './RolloverDialog'
@@ -22,8 +25,10 @@ export default function TodayPage() {
   const { data, isLoading, error, refetch } = useTodos(today)
   const { create, toggle, remove } = useTodoMutations()
   const { data: overlayState } = useOverlayState()
+  const { data: planTree } = usePlanTree()
 
   const [title, setTitle] = useState('')
+  const [planId, setPlanId] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [pickOpen, setPickOpen] = useState(false)
   /** 非 null 表示顺延对话框打开，值是本次要顺延的 id */
@@ -35,6 +40,7 @@ export default function TodayPage() {
   const done = todos.filter((todo) => todo.status === 'done').length
   const percent = total === 0 ? 0 : Math.round((done / total) * 100)
   const pendingIds = todos.filter((todo) => todo.status === 'pending').map((todo) => todo.id)
+  const planOptions = flattenTree(planTree ?? [])
 
   // 提示条自动消失。卸载/重跑时清掉定时器，否则会对着已卸载的组件 setState
   useEffect(() => {
@@ -48,7 +54,11 @@ export default function TodayPage() {
     if (trimmed.length === 0) return
     try {
       setFormError(null)
-      await create.mutateAsync({ title: trimmed, scheduledDate: today })
+      await create.mutateAsync({
+        title: trimmed,
+        scheduledDate: today,
+        planId: planId === '' ? null : planId,
+      })
       setTitle('')
     } catch (caught) {
       setFormError(caught instanceof Error ? caught.message : '添加失败')
@@ -125,8 +135,23 @@ export default function TodayPage() {
               placeholder="今天要做点什么？回车添加"
               aria-label="新待办"
               autoComplete="off"
-              className={inputClass}
+              className={cn(inputClass, 'min-w-0 flex-1')}
             />
+            {/* 归属计划：选「临时」= 一次性事项；选某个计划会同时在该计划下建一个任务，
+                完成时计划进度会跟着涨 */}
+            <select
+              value={planId}
+              onChange={(event) => setPlanId(event.target.value)}
+              aria-label="归属计划"
+              className={cn(inputClass, 'w-36 shrink-0')}
+            >
+              <option value="">临时事项</option>
+              {planOptions.map((plan) => (
+                <option key={plan.id} value={plan.id}>
+                  {plan.title}
+                </option>
+              ))}
+            </select>
             <Button
               type="submit"
               className="shrink-0"

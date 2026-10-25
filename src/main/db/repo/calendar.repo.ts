@@ -59,6 +59,7 @@ export function getMonthView(db: DatabaseSync, year: number, month: number): Mon
     .filter((plan) => plan.status === 'active' && plan.startDate <= last && plan.endDate >= first)
     .map((plan) => ({
       id: plan.id,
+      parentId: plan.parentId,
       title: plan.title,
       startDate: plan.startDate,
       endDate: plan.endDate,

@@ -39,15 +39,32 @@ export function addDays(dateStr: string, days: number): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
 }
 
-/** "2026-10-25" -> "10月25日"；不是今年时带上年份 */
+/**
+ * "2026-10-25" -> "2026年10月25日"。
+ * 统一带年份：本年内省略年份会让「2026年12月 – 2027年3月」这种跨年区间看起来像同一年。
+ */
 export function formatDateLabel(dateStr: string): string {
   const [year = 1970, month = 1, day = 1] = dateStr.split('-').map(Number)
-  return year === new Date().getFullYear() ? `${month}月${day}日` : `${year}年${month}月${day}日`
+  return `${year}年${month}月${day}日`
 }
 
-/** 计划区间的展示文案："10月25日 – 11月24日" */
+/** 计划区间的展示文案："2026年10月25日 – 2026年11月24日" */
 export function formatRange(startDate: string, endDate: string): string {
   return `${formatDateLabel(startDate)} – ${formatDateLabel(endDate)}`
+}
+
+/**
+ * 树里用的紧凑区间："10/05–11/24"，跨年时才带年份。
+ * 树上只有 280px 宽，完整日期一定会截断，宁可短也要能看全。
+ */
+export function formatRangeCompact(startDate: string, endDate: string): string {
+  const [startYear = 1970, startMonth = 1, startDay = 1] = startDate.split('-').map(Number)
+  const [endYear = 1970, endMonth = 1, endDay = 1] = endDate.split('-').map(Number)
+
+  const start = `${startMonth}/${startDay}`
+  const end = `${endMonth}/${endDay}`
+
+  return startYear === endYear ? `${start}–${end}` : `${startYear}/${start}–${endYear}/${end}`
 }
 
 function toDateString(date: Date): string {

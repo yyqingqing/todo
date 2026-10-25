@@ -36,7 +36,9 @@ async function launch(dir) {
 async function setWindowSize(app, width, height) {
   await app.evaluate(
     ({ BrowserWindow }, size) => {
-      const win = BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('overlay'))
+      const win = BrowserWindow.getAllWindows().find(
+        (w) => !w.webContents.getURL().includes('overlay'),
+      )
       win?.setSize(size.width, size.height)
     },
     { width, height },
@@ -117,7 +119,11 @@ async function captureAll(page, suffix) {
       scheduledDate: today,
       taskId: pickable[0].id,
     })
-    const b = await window.api.todo.create({ title: pickable[1].title, scheduledDate: today, taskId: pickable[1].id })
+    const b = await window.api.todo.create({
+      title: pickable[1].title,
+      scheduledDate: today,
+      taskId: pickable[1].id,
+    })
     await window.api.todo.create({ title: '给张三回电话', scheduledDate: today })
     await window.api.todo.create({ title: '取快递', scheduledDate: today })
     await window.api.todo.toggle(a.id)

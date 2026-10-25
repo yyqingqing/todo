@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
 import type { TodoCreateInput, TodoWithPlan } from '@shared/types'
 import { all, get, transaction } from '../sql'
+import { saveTask } from './task.repo'
 
 /**
  * 带上归属计划名与分类色。
@@ -44,7 +45,14 @@ export function createTodo(db: DatabaseSync, input: TodoCreateInput): TodoWithPl
   const title = input.title.trim()
   if (title.length === 0) throw new Error('待办内容不能为空')
 
-  const taskId = input.taskId ?? null
+  let taskId = input.taskId ?? null
+
+  // 指定了归属计划但没指定具体任务：在该计划下建一个同名任务再关联。
+  // 这样完成这条待办时计划进度会跟着涨 —— 用户选计划就是希望「这件事推进那个计划」。
+  if (taskId === null && input.planId) {
+    const created = saveTask(db, { planId: input.planId, title })
+    taskId = created.id
+  }
 
   if (taskId !== null) {
     // task_id 上有 UNIQUE 约束，这里提前给中文提示，否则用户看到的是 SQLite 的英文报错

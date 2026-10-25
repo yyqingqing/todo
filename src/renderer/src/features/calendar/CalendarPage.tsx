@@ -157,7 +157,15 @@ export default function CalendarPage() {
               <section className="flex flex-col gap-3">
                 <div className="flex items-baseline justify-between">
                   <h2 className="text-sm font-medium text-ink">本月计划</h2>
-                  <span className="text-xs text-ink-muted">{data?.plans.length ?? 0} 个</span>
+                  <span className="text-xs text-ink-muted">
+                    {/* 顶层计划和子计划分开计数：混在一起看不出「我有几个真正在推进的项目」 */}
+                    {(() => {
+                      const list = data?.plans ?? []
+                      const topLevel = list.filter((plan) => plan.parentId === null).length
+                      const sub = list.length - topLevel
+                      return sub > 0 ? `${topLevel} 个计划 · ${sub} 个子计划` : `${topLevel} 个计划`
+                    })()}
+                  </span>
                 </div>
 
                 {(data?.plans.length ?? 0) === 0 ? (
@@ -238,8 +246,10 @@ function PlanSpanRow({ plan, year, month }: { plan: CalendarPlan; year: number; 
       </span>
 
       <div className="relative h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-panel-sunken">
+        {/* 跨度底色只标「这个月哪些天被计划覆盖」，用 25% 透明度。
+            之前是 40%，0% 进度的计划看起来像「已经有进度了」——用户实际误读过。 */}
         <div
-          className="absolute inset-y-0 rounded-full opacity-40"
+          className="absolute inset-y-0 rounded-full opacity-25"
           style={{
             left: `${left}%`,
             width: `${width}%`,

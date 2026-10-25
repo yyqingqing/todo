@@ -3,6 +3,7 @@ import type { PlanNode } from '@shared/types'
 import { ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '../../lib/cn'
+import { formatRangeCompact } from '../../lib/date'
 
 interface PlanTreeProps {
   nodes: PlanNode[]
@@ -63,7 +64,7 @@ function TreeNode({ node, depth, selectedId, collapsed, onSelect, onToggle }: Tr
     <>
       <div
         className={cn(
-          'flex h-[var(--row-h)] items-center rounded-md text-sm transition-colors',
+          'flex min-h-[var(--row-h)] items-center rounded-md py-1 text-sm transition-colors',
           isSelected
             ? 'bg-brand-soft font-medium text-brand'
             : 'text-ink-secondary hover:bg-panel-hover hover:text-ink',
@@ -95,9 +96,13 @@ function TreeNode({ node, depth, selectedId, collapsed, onSelect, onToggle }: Tr
           type="button"
           onClick={() => onSelect(node.id)}
           aria-current={isSelected ? 'true' : undefined}
-          className="flex min-w-0 flex-1 items-center pr-1 text-left"
+          className="flex min-w-0 flex-1 flex-col items-start gap-0.5 pr-1 text-left"
         >
-          <span className="truncate">{node.title}</span>
+          <span className="w-full truncate">{node.title}</span>
+          {/* 起止时间：树上能直接看出计划落在哪段时间，不用点进详情 */}
+          <span className="w-full truncate text-[10px] font-normal text-ink-subtle">
+            {formatRangeCompact(node.startDate, node.endDate)}
+          </span>
         </button>
 
         <span className="tabular shrink-0 pr-2 text-xs text-ink-subtle">{percent}%</span>

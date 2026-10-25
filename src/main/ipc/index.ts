@@ -129,6 +129,7 @@ function parseTodoInput(raw: unknown): TodoCreateInput {
     title: requireString(record['title'], 'title'),
     scheduledDate: requireDate(record['scheduledDate'], 'scheduledDate'),
     taskId: nullableString(record['taskId'], 'taskId'),
+    planId: nullableString(record['planId'], 'planId'),
   }
 }
 

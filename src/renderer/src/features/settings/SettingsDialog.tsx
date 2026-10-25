@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import Button from '../../components/Button'
+import ConfirmDialog from '../../components/ConfirmDialog'
 import { getApi } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { applyTheme, readThemeMode, type ThemeMode } from '../../lib/theme'
@@ -18,6 +19,11 @@ const CLOSE_ACTIONS: ReadonlyArray<{ value: 'tray' | 'quit'; label: string }> = 
   { value: 'tray', label: '缩到托盘' },
   { value: 'quit', label: '直接退出' },
 ]
+
+const SHORTCUTS = [
+  { keys: 'Ctrl + Shift + L', label: '锁定 / 解锁悬浮窗（鼠标穿透）' },
+  { keys: 'Ctrl + Shift + O', label: '显示 / 隐藏悬浮窗' },
+] as const
 
 interface SettingsDialogProps {
   open: boolean
@@ -58,6 +64,18 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
   const setCloseAction = (value: 'tray' | 'quit'): void => {
     void getApi().setting.set('app.closeAction', value)
+  }
+
+  const [resetOpen, setResetOpen] = useState(false)
+
+  /** 只重置「偏好类」设置，不碰任何业务数据 */
+  const resetSettings = async (): Promise<void> => {
+    applyTheme('system')
+    setThemeMode('system')
+    setOpacity(DEFAULT_OVERLAY_OPACITY)
+    await getApi().setting.set('overlay.opacity', String(DEFAULT_OVERLAY_OPACITY))
+    await getApi().setting.set('app.closeAction', 'tray')
+    setResetOpen(false)
   }
 
   // 只在弹窗打开时查询，避免应用启动时就打一次 IPC
@@ -235,6 +253,21 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         </section>
 
         <section className="flex flex-col gap-2 border-t border-line pt-4">
+          <h3 className="text-xs font-medium tracking-wide text-ink-muted">快捷键</h3>
+          {SHORTCUTS.map((shortcut) => (
+            <div key={shortcut.keys} className="flex items-center justify-between gap-3">
+              <span className="text-sm text-ink">{shortcut.label}</span>
+              <kbd className="rounded border border-line-strong bg-panel-sunken px-1.5 py-0.5 font-mono text-[11px] text-ink-secondary">
+                {shortcut.keys}
+              </kbd>
+            </div>
+          ))}
+          <p className="text-xs text-ink-muted">
+            暂时不支持自定义：改成系统已占用的组合会导致快捷键失效且无法在应用内恢复。
+          </p>
+        </section>
+
+        <section className="flex flex-col gap-2 border-t border-line pt-4">
           <h3 className="text-xs font-medium tracking-wide text-ink-muted">数据</h3>
           <div className="flex flex-col gap-1">
             <span className="text-sm text-ink">存储位置</span>
@@ -256,7 +289,25 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           </div>
           <p className="text-xs text-ink-muted">{PRODUCT.tagline}</p>
         </section>
+
+        <div className="flex items-center justify-between gap-3 border-t border-line pt-4">
+          <span className="text-xs text-ink-muted">把主题、透明度、关闭行为恢复成初始值</span>
+          <Button size="sm" variant="ghost" onClick={() => setResetOpen(true)}>
+            恢复默认设置
+          </Button>
+        </div>
       </div>
+
+      <ConfirmDialog
+        open={resetOpen}
+        title="恢复默认设置"
+        description="主题、悬浮窗透明度、关闭行为会恢复成初始值。计划、任务和积分记录不受影响。"
+        confirmText="恢复"
+        onConfirm={() => {
+          void resetSettings()
+        }}
+        onCancel={() => setResetOpen(false)}
+      />
     </dialog>
   )
 }

@@ -148,8 +148,10 @@ export interface PlanDetail {
 export interface TodoCreateInput {
   title: string
   scheduledDate: DateString
-  /** 从计划拉取时传 taskId；临时事项不传 */
+  /** 从计划拉取已有任务时传 */
   taskId?: string | null
+  /** 新建时指定归属计划：会在该计划下建一个同名任务再排进清单 */
+  planId?: string | null
 }
 
 /** 可被拉到今日清单的任务：属于某个计划，且还没有对应的待办 */
@@ -181,6 +183,8 @@ export interface CalendarDay {
 /** 与某月有交集的计划，用于画本月跨度 */
 export interface CalendarPlan {
   id: string
+  /** null 表示是顶层计划，非 null 是子计划。界面上要分开计数 */
+  parentId: string | null
   title: string
   startDate: DateString
   endDate: DateString
