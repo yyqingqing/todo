@@ -1,11 +1,15 @@
 import type { TodoWithPlan } from '@shared/types'
-import { Check, Trash2 } from 'lucide-react'
+import { Check, CornerUpRight, Trash2 } from 'lucide-react'
 import { cn } from '../../lib/cn'
+
+/** 顺延超过这个次数就提示用户：可能是这件事需要拆小，或者该放弃了 */
+const ROLLOVER_HINT_THRESHOLD = 3
 
 interface TodoRowProps {
   todo: TodoWithPlan
   onToggle: (id: string) => void
   onRemove: (id: string) => void
+  onRollover: (id: string) => void
   busy?: boolean
 }
 
@@ -16,8 +20,15 @@ interface TodoRowProps {
  * 屏幕阅读器状态播报，自己画一个要补一堆 ARIA 还容易漏。
  * 视觉上用 sr-only 藏起来，靠 peer 影响旁边的方框。
  */
-export default function TodoRow({ todo, onToggle, onRemove, busy = false }: TodoRowProps) {
+export default function TodoRow({
+  todo,
+  onToggle,
+  onRemove,
+  onRollover,
+  busy = false,
+}: TodoRowProps) {
   const done = todo.status === 'done'
+  const overdueHint = todo.rolloverCount >= ROLLOVER_HINT_THRESHOLD
 
   return (
     <li className="group flex items-start gap-3 rounded-md px-2 py-2.5 transition-colors hover:bg-panel-hover">
@@ -51,9 +62,28 @@ export default function TodoRow({ todo, onToggle, onRemove, busy = false }: Todo
           >
             {todo.title}
           </span>
-          {todo.planTitle ? <span className="text-xs text-ink-muted">{todo.planTitle}</span> : null}
+
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+            {todo.planTitle ? <span className="text-ink-muted">{todo.planTitle}</span> : null}
+            {todo.rolloverCount > 0 ? (
+              <span className={overdueHint ? 'text-warn' : 'text-ink-subtle'}>
+                已顺延 {todo.rolloverCount} 次{overdueHint ? '，要不要拆小一点？' : ''}
+              </span>
+            ) : null}
+          </span>
         </span>
       </label>
+
+      {!done ? (
+        <button
+          type="button"
+          onClick={() => onRollover(todo.id)}
+          aria-label={`把「${todo.title}」顺延到以后`}
+          className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100 hover:bg-panel-sunken hover:text-ink focus-visible:opacity-100"
+        >
+          <CornerUpRight size={14} strokeWidth={1.8} aria-hidden="true" />
+        </button>
+      ) : null}
 
       <button
         type="button"

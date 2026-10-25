@@ -18,6 +18,7 @@ import {
   listTodosByDate,
   removeTodo,
   reorderTodos,
+  rolloverTodos,
   toggleTodo,
 } from '../db/repo/todo.repo'
 
@@ -199,5 +200,14 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.todoReorder, (_event, date: unknown, orderedIds: unknown) => {
     reorderTodos(getDb(), requireDate(date, 'date'), parseStringArray(orderedIds, 'orderedIds'))
     broadcastDataChanged('todo')
+  })
+  ipcMain.handle(IPC.todoRollover, (_event, ids: unknown, targetDate: unknown) => {
+    const moved = rolloverTodos(
+      getDb(),
+      parseStringArray(ids, 'ids'),
+      requireDate(targetDate, 'targetDate'),
+    )
+    broadcastDataChanged('todo')
+    return moved
   })
 }

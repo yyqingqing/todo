@@ -20,7 +20,7 @@ interface PickTaskDialogProps {
  */
 export default function PickTaskDialog({ open, date, onClose }: PickTaskDialogProps) {
   const { data, isLoading } = usePickableTasks(open)
-  const { create } = useTodoMutations(date)
+  const { create } = useTodoMutations()
   const [error, setError] = useState<string | null>(null)
   // 记下本次已加入的，避免连点同一项时等到列表刷新才消失
   const [addedIds, setAddedIds] = useState<ReadonlySet<string>>(() => new Set())

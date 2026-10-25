@@ -24,7 +24,7 @@ export function usePickableTasks(enabled: boolean) {
   })
 }
 
-export function useTodoMutations(date: string) {
+export function useTodoMutations() {
   const queryClient = useQueryClient()
 
   const invalidate = (): void => {
@@ -48,5 +48,11 @@ export function useTodoMutations(date: string) {
     onSuccess: invalidate,
   })
 
-  return { create, toggle, remove, invalidate, date }
+  const rollover = useMutation({
+    mutationFn: ({ ids, targetDate }: { ids: string[]; targetDate: string }) =>
+      getApi().todo.rollover(ids, targetDate),
+    onSuccess: invalidate,
+  })
+
+  return { create, toggle, remove, rollover, invalidate }
 }

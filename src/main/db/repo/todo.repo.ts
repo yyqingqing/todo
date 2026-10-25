@@ -107,3 +107,42 @@ export function reorderTodos(db: DatabaseSync, date: string, orderedIds: string[
     })
   })
 }
+
+/**
+ * 顺延到指定日期。
+ *
+ * 三条规则，每条都有原因：
+ * 1. 只动 scheduled_date，**永远不改 origin_date** —— 否则"拖延了几天"这个统计就没了
+ * 2. 每次顺延都写一条 rollover_log —— 光有计数器无法回答"从哪天挪到哪天"
+ * 3. 只处理 pending；已完成/已放弃的跳过，不报错 —— 批量操作里混入一条完成项是常态
+ *
+ * 返回实际顺延的条数，供界面反馈"顺延了几条"。
+ */
+export function rolloverTodos(db: DatabaseSync, ids: string[], targetDate: string): number {
+  const now = new Date().toISOString()
+
+  return transaction(db, () => {
+    let moved = 0
+
+    for (const id of ids) {
+      const todo = getTodo(db, id)
+      if (!todo || todo.status !== 'pending') continue
+      if (todo.scheduledDate === targetDate) continue
+
+      db.prepare(
+        `UPDATE todo_item
+         SET scheduled_date = ?, rollover_count = rollover_count + 1, updated_at = ?
+         WHERE id = ?`,
+      ).run(targetDate, now, id)
+
+      db.prepare(
+        `INSERT INTO rollover_log (id, todo_item_id, from_date, to_date, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+      ).run(randomUUID(), id, todo.scheduledDate, targetDate, now)
+
+      moved += 1
+    }
+
+    return moved
+  })
+}

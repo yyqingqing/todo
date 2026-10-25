@@ -1,30 +1,44 @@
 import { Layers, ListChecks } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Button from '../../components/Button'
 import EmptyState from '../../components/EmptyState'
 import ErrorState from '../../components/ErrorState'
 import PageHeader from '../../components/PageHeader'
 import ProgressBar from '../../components/ProgressBar'
-import { todayLabel } from '../../lib/date'
+import { formatDateLabel, todayLabel } from '../../lib/date'
 import { fieldErrorClass, inputClass } from '../../lib/ui'
 import { useToday } from '../../lib/use-today'
 import { useTodoMutations, useTodos } from './api'
 import PickTaskDialog from './PickTaskDialog'
+import RolloverDialog from './RolloverDialog'
 import TodoRow from './TodoRow'
+
+const NOTICE_DURATION_MS = 4000
 
 export default function TodayPage() {
   const { today } = useToday()
   const { data, isLoading, error, refetch } = useTodos(today)
-  const { create, toggle, remove } = useTodoMutations(today)
+  const { create, toggle, remove } = useTodoMutations()
 
   const [title, setTitle] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [pickOpen, setPickOpen] = useState(false)
+  /** 非 null 表示顺延对话框打开，值是本次要顺延的 id */
+  const [rolloverIds, setRolloverIds] = useState<string[] | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const todos = data ?? []
   const total = todos.length
   const done = todos.filter((todo) => todo.status === 'done').length
   const percent = total === 0 ? 0 : Math.round((done / total) * 100)
+  const pendingIds = todos.filter((todo) => todo.status === 'pending').map((todo) => todo.id)
+
+  // 提示条自动消失。卸载/重跑时清掉定时器，否则会对着已卸载的组件 setState
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(null), NOTICE_DURATION_MS)
+    return () => window.clearTimeout(timer)
+  }, [notice])
 
   const addTodo = async (): Promise<void> => {
     const trimmed = title.trim()
@@ -60,7 +74,26 @@ export default function TodayPage() {
               <span className="tabular shrink-0 text-xs text-ink-muted">
                 {done} / {total}
               </span>
+              {pendingIds.length > 0 ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="shrink-0"
+                  onClick={() => setRolloverIds(pendingIds)}
+                >
+                  {pendingIds.length > 1 ? `顺延未完成 ${pendingIds.length} 条` : '顺延'}
+                </Button>
+              ) : null}
             </div>
+          ) : null}
+
+          {notice ? (
+            <p
+              role="status"
+              className="rounded-md border border-line bg-brand-soft px-3 py-2 text-xs text-brand"
+            >
+              {notice}
+            </p>
           ) : null}
 
           <form
@@ -124,6 +157,7 @@ export default function TodayPage() {
                   onRemove={(id) => {
                     void remove.mutateAsync(id)
                   }}
+                  onRollover={(id) => setRolloverIds([id])}
                 />
               ))}
             </ul>
@@ -132,6 +166,20 @@ export default function TodayPage() {
       </div>
 
       <PickTaskDialog open={pickOpen} date={today} onClose={() => setPickOpen(false)} />
+
+      <RolloverDialog
+        open={rolloverIds !== null}
+        todoIds={rolloverIds ?? []}
+        onClose={() => setRolloverIds(null)}
+        onDone={(moved, targetDate) => {
+          setRolloverIds(null)
+          setNotice(
+            moved > 0
+              ? `已把 ${moved} 条顺延到 ${formatDateLabel(targetDate)}，原计划日期已保留`
+              : '没有需要顺延的待办',
+          )
+        }}
+      />
     </div>
   )
 }

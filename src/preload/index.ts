@@ -38,6 +38,7 @@ const api: Api = {
     toggle: (id) => ipcRenderer.invoke(IPC.todoToggle, id),
     remove: (id) => ipcRenderer.invoke(IPC.todoRemove, id),
     reorder: (date, orderedIds) => ipcRenderer.invoke(IPC.todoReorder, date, orderedIds),
+    rollover: (ids, targetDate) => ipcRenderer.invoke(IPC.todoRollover, ids, targetDate),
   },
 
   pickableTasks: () => ipcRenderer.invoke(IPC.pickableTasks),

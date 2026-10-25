@@ -58,6 +58,11 @@ export interface Api {
     toggle(id: string): Promise<TodoWithPlan>
     remove(id: string): Promise<void>
     reorder(date: DateString, orderedIds: string[]): Promise<void>
+    /**
+     * 顺延到指定日期，返回实际移动的条数。
+     * 只动 scheduled_date，origin_date 永远不变（"拖延几天"的统计靠它）。
+     */
+    rollover(ids: string[], targetDate: DateString): Promise<number>
   }
   /** 从计划里挑任务排进清单时用 */
   pickableTasks(): Promise<PickableTask[]>
@@ -100,6 +105,7 @@ export const IPC = {
   todoToggle: 'todo:toggle',
   todoRemove: 'todo:remove',
   todoReorder: 'todo:reorder',
+  todoRollover: 'todo:rollover',
 
   pickableTasks: 'plan:pickable-tasks',
 
