@@ -21,13 +21,14 @@
   --gray-800: #1d2939;
   --gray-900: #101828;
 
-  /* ---------- 品牌色（靛蓝：工具感强，且与逾期红/完成绿区分度足够） ---------- */
-  --brand-50: #eef2ff;
-  --brand-100: #e0e7ff;
-  --brand-300: #a5b4fc;
-  --brand-500: #6366f1;
-  --brand-600: #4f46e5;
-  --brand-700: #4338ca;
+  /* ---------- 品牌色（青绿：对产品名「青青」的草木意象，也是嫩芽图标的本色；压得住不发飘） ---------- */
+  --brand-50: #f0fdfa;
+  --brand-100: #ccfbf1;
+  --brand-300: #5eead4;
+  --brand-500: #14b8a6;
+  --brand-600: #0d9488;
+  --brand-700: #0f766e;
+  --brand-800: #115e59;
 
   /* ---------- 状态色（前景 + 浅底，必须成对使用，禁止只靠颜色承载信息） ---------- */
   --ok: #12b76a;
@@ -58,8 +59,9 @@
   --ink-secondary: var(--gray-600);
   --ink-muted: var(--gray-500);
   --ink-subtle: var(--gray-400);
-  --brand: var(--brand-600);
-  --brand-hover: var(--brand-700);
+  /* 文字/图标用 700：600 压在浅青底上只有约 3.9:1，14px 达不到 AA(4.5:1) */
+  --brand: var(--brand-700);
+  --brand-hover: var(--brand-800);
   --brand-soft: var(--brand-50);
 
   /* ---------- 字体 ---------- */
@@ -104,7 +106,7 @@
   --ink-subtle: #5c6675;
   --brand: var(--brand-500);
   --brand-hover: var(--brand-300);
-  --brand-soft: #1e1b4b;
+  --brand-soft: #134e4a;
 
   --ok-soft: #052e1c;
   --warn-soft: #2e1c02;

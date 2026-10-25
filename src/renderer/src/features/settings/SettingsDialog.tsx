@@ -24,7 +24,12 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
-    if (open && !dialog.open) dialog.showModal()
+    if (open && !dialog.open) {
+      dialog.showModal()
+      // 聚焦容器而不是第一个按钮：程序化聚焦会被 Chromium 判成键盘焦点，
+      // 鼠标用户会看到按钮上一个突兀的焦点环。容器本身有边框，不需要额外轮廓。
+      dialog.focus()
+    }
     if (!open && dialog.open) dialog.close()
   }, [open])
 
@@ -36,6 +41,7 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   return (
     <dialog
       ref={dialogRef}
+      tabIndex={-1}
       aria-labelledby="settings-title"
       onClose={onClose}
       // Esc 已经由原生 dialog 处理，这里显式处理一遍保证"遮罩点击"始终有键盘等价物
@@ -46,7 +52,7 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         // showModal 下点击遮罩，事件目标是 dialog 元素本身
         if (event.target === dialogRef.current) onClose()
       }}
-      className="m-auto w-[min(520px,calc(100vw-48px))] rounded-lg border border-line bg-panel p-0 text-ink shadow-pop backdrop:bg-scrim"
+      className="m-auto w-[min(520px,calc(100vw-48px))] rounded-lg border border-line bg-panel p-0 text-ink shadow-pop backdrop:bg-scrim focus:outline-none"
     >
       <div className="flex items-center justify-between border-b border-line px-5 py-3">
         <h2 id="settings-title" className="text-lg font-semibold">

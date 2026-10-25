@@ -16,7 +16,7 @@ const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
 const userDataDir = join(tmpdir(), 'qingqing-visual-qa')
 
-const BRAND = '#4f46e5'
+const BRAND = '#0d9488'
 
 const html = `<!doctype html>
 <html><head><meta charset="utf-8"><style>
