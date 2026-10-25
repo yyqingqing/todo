@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
 import type { PickableTask, Plan, PlanDetail, PlanInput, PlanNode, PlanStats } from '@shared/types'
-import { all, get } from '../sql'
+import { all, get, transaction } from '../sql'
 import { getCategory } from './category.repo'
 import { listTasksByPlan } from './task.repo'
 
@@ -229,11 +229,30 @@ export function savePlan(db: DatabaseSync, input: PlanInput): Plan {
 
 /**
  * 删除计划：子计划与任务靠外键 CASCADE 一起删除。
- * 已排期的 todo_item 会因 task 删除而 task_id 置 NULL，变成孤儿记录 —— 这是有意的：
- * 历史清单不该因为删计划就消失。
+ *
+ * 删之前先清掉这棵子树下「还没完成」的待办：
+ * CASCADE 只把 todo_item.task_id 置 NULL，留着的话清单里会凭空多出一堆
+ * 没有归属、也不属于任何计划的孤儿条目，用户会以为删除没生效。
+ *
+ * 已经完成的待办保留 —— 那是历史，还关联着积分流水。
  */
 export function removePlan(db: DatabaseSync, id: string): void {
-  db.prepare('DELETE FROM plan WHERE id = ?').run(id)
+  transaction(db, () => {
+    db.prepare(
+      `DELETE FROM todo_item
+       WHERE status = 'pending'
+         AND task_id IN (
+           WITH RECURSIVE subtree(id) AS (
+             SELECT id FROM plan WHERE id = ?
+             UNION ALL
+             SELECT p.id FROM plan p JOIN subtree s ON p.parent_id = s.id
+           )
+           SELECT t.id FROM task t WHERE t.plan_id IN (SELECT id FROM subtree)
+         )`,
+    ).run(id)
+
+    db.prepare('DELETE FROM plan WHERE id = ?').run(id)
+  })
 }
 
 /**

@@ -63,6 +63,22 @@ export function saveTask(db: DatabaseSync, input: TaskInput): Task {
   const note = input.note?.trim() ?? null
   const estMinutes = input.estMinutes ?? null
 
+  // 排期日必须落在计划区间内。
+  // 界面用 date input 的 min/max 也限制了，但那是可绕过的 —— 数据层必须自己校验。
+  if (!input.id && input.scheduledDate) {
+    const plan = get<{ startDate: string; endDate: string }>(
+      db,
+      'SELECT start_date AS startDate, end_date AS endDate FROM plan WHERE id = ?',
+      [input.planId],
+    )
+    if (!plan) throw new Error('计划不存在')
+    if (input.scheduledDate < plan.startDate || input.scheduledDate > plan.endDate) {
+      throw new Error(
+        `排期日必须在计划区间内（${plan.startDate} 至 ${plan.endDate}）`,
+      )
+    }
+  }
+
   if (input.id) {
     const existing = getTask(db, input.id)
     if (!existing) throw new Error('任务不存在')
@@ -88,8 +104,20 @@ export function saveTask(db: DatabaseSync, input: TaskInput): Task {
   return getTask(db, id) as Task
 }
 
+/**
+ * 删除任务。
+ *
+ * 同时删掉它「还没完成」的待办记录：
+ * 任务都被删了，清单里还留着一条变成孤儿的条目，用户会以为删除没生效。
+ *
+ * 已经完成的待办保留 —— 那是历史，还关联着积分流水，删掉会让账本对不上。
+ * 它会在清单里显示为没有归属计划的一条记录（title 快照还在）。
+ */
 export function removeTask(db: DatabaseSync, id: string): void {
-  db.prepare('DELETE FROM task WHERE id = ?').run(id)
+  transaction(db, () => {
+    db.prepare("DELETE FROM todo_item WHERE task_id = ? AND status = 'pending'").run(id)
+    db.prepare('DELETE FROM task WHERE id = ?').run(id)
+  })
 }
 
 /** 同级排序：按给定顺序重写 sort_order，整批放在一个事务里 */

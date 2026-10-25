@@ -134,7 +134,12 @@ export default function PlanDetailPanel({
         </section>
       ) : null}
 
-      <TaskList planId={plan.id} tasks={tasks} />
+      <TaskList
+        planId={plan.id}
+        planStartDate={plan.startDate}
+        planEndDate={plan.endDate}
+        tasks={tasks}
+      />
     </div>
   )
 }

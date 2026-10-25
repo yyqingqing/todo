@@ -9,11 +9,19 @@ import { usePlanMutations } from './api'
 
 interface TaskListProps {
   planId: string
+  /** 计划区间：排期日不能超出这个范围，date input 用它做 min/max */
+  planStartDate: string
+  planEndDate: string
   tasks: TaskWithState[]
 }
 
 /** 计划下的任务。回车即加，是这个页面唯一需要"高频输入"的地方 */
-export default function TaskList({ planId, tasks }: TaskListProps) {
+export default function TaskList({
+  planId,
+  planStartDate,
+  planEndDate,
+  tasks,
+}: TaskListProps) {
   const { saveTask, removeTask } = usePlanMutations()
   const [title, setTitle] = useState('')
   /** 留空 = 待安排；选了日期会同时排进那天的今日清单 */
@@ -67,13 +75,16 @@ export default function TaskList({ planId, tasks }: TaskListProps) {
           aria-label="新任务标题"
           className={cn(inputClass, 'min-w-0 flex-1')}
         />
-        {/* 日期可选：选了就会在那天生成待办，到日子自动出现在今日清单 */}
+        {/* 日期可选：选了就会在那天生成待办，到日子自动出现在今日清单。
+            min/max 限制在计划区间内 —— 超出区间在数据层会被拒，这里先挡住 */}
         <input
           type="date"
           value={scheduledDate}
+          min={planStartDate}
+          max={planEndDate}
           onChange={(event) => setScheduledDate(event.target.value)}
           aria-label="排到哪一天（可选）"
-          title="选一个日期，到那天会自动出现在今日清单；留空表示待安排"
+          title={`可选：排到计划区间内的一天（${planStartDate} 至 ${planEndDate}）`}
           className={cn(inputClass, 'w-[148px] shrink-0')}
         />
         <Button
