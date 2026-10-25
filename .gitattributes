@@ -1,0 +1,7 @@
+# 统一 LF，避免 Windows 上 checkout 后行尾混杂导致 Biome 反复重排
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.jpg binary
+*.woff2 binary

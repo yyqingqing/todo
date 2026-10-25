@@ -3,20 +3,19 @@
 Windows 优先的桌面效率应用：计划树 + 每日清单 + 置顶悬浮窗 + 日历 + 积分。
 
 设计决策与取舍在文档里，不在代码注释里：
-
 - [需求评估与方案](docs/00-需求评估与方案.md) —— 为什么这样拆分概念、三种悬浮窗形态的取舍
 - [实施计划](docs/01-实施计划.md) —— 数据模型、IPC 契约、阶段划分与验收标准
 
 ## 技术栈
 
-| 层 | 选型 |
-| --- | --- |
-| 桌面壳 | Electron 45 |
-| 界面 | React 19 + TypeScript 7（strict） |
-| 构建 | Vite 8 + electron-vite 6 |
-| 样式 | Tailwind CSS 4 + 语义 token |
-| 数据 | better-sqlite3（阶段 1 接入） |
-| 质量 | Biome（格式化 + lint）、Vitest、Playwright（视觉自检） |
+| 层     | 选型                                                   |
+| ------ | ------------------------------------------------------ |
+| 桌面壳 | Electron 45                                            |
+| 界面   | React 19 + TypeScript 7（strict）                      |
+| 构建   | Vite 8 + electron-vite 6                               |
+| 样式   | Tailwind CSS 4 + 语义 token                            |
+| 数据   | better-sqlite3（阶段 1 接入）                          |
+| 质量   | Biome（格式化 + lint）、Vitest、Playwright（视觉自检） |
 
 ## 开发
 
