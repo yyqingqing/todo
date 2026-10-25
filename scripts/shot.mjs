@@ -8,16 +8,21 @@
  * 用法：pnpm build && pnpm shot
  */
 import { mkdirSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { _electron as electron } from 'playwright'
 
 const env = { ...process.env }
 // 这个变量会让 electron 以纯 Node 模式启动，拿不到 app / BrowserWindow
 delete env.ELECTRON_RUN_AS_NODE
 
+// 独立 userData：否则会被正在运行的 dev 实例的单实例锁挡住而直接退出
+const userDataDir = join(tmpdir(), 'qingqing-visual-qa')
+
 const OUT_DIR = '.shots'
 mkdirSync(OUT_DIR, { recursive: true })
 
-const app = await electron.launch({ args: ['.'], env })
+const app = await electron.launch({ args: ['.', `--user-data-dir=${userDataDir}`], env })
 const page = await app.firstWindow()
 await page.waitForTimeout(900)
 

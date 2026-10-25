@@ -2,6 +2,8 @@ import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { PRODUCT } from '@shared/product'
 import { app, BrowserWindow, nativeTheme, session, shell } from 'electron'
+import { closeDatabase, openDatabase } from './db/connection'
+import { registerIpcHandlers } from './ipc'
 
 /**
  * 窗口级背景色。Electron 建窗口时就要这个值，此时 CSS 变量还没加载。
@@ -97,6 +99,10 @@ if (!app.requestSingleInstanceLock()) {
     electronApp.setAppUserModelId(PRODUCT.appId)
     harden()
 
+    // 数据库必须在建窗口之前就绪：窗口一加载就可能通过 IPC 发起查询
+    openDatabase()
+    registerIpcHandlers()
+
     // dev 下 F12 开 DevTools、F5 刷新（生产环境自动不生效）
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)
@@ -111,5 +117,10 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()
+  })
+
+  // 退出前关闭连接：确保 WAL 落盘、文件句柄释放
+  app.on('will-quit', () => {
+    closeDatabase()
   })
 }

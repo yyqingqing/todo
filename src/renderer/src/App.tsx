@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import AppShell from './components/AppShell'
@@ -8,6 +9,20 @@ import ScorePage from './pages/ScorePage'
 import TodayPage from './pages/TodayPage'
 
 /**
+ * 本地 IPC 数据也走 TanStack Query：缓存、失效、并发去重都是现成的。
+ * 阶段 2 起所有写操作完成后由主进程广播，前端 invalidateQueries 精确失效。
+ */
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: false,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
+
+/**
  * 桌面应用用 HashRouter：生产环境是 file:// 加载，BrowserRouter 的路径路由会 404。
  */
 export default function App() {
@@ -15,17 +30,19 @@ export default function App() {
   useEffect(() => watchSystemTheme(), [])
 
   return (
-    <HashRouter>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route index element={<Navigate to="/today" replace />} />
-          <Route path="/today" element={<TodayPage />} />
-          <Route path="/plans" element={<PlansPage />} />
-          <Route path="/calendar" element={<CalendarPage />} />
-          <Route path="/score" element={<ScorePage />} />
-          <Route path="*" element={<Navigate to="/today" replace />} />
-        </Route>
-      </Routes>
-    </HashRouter>
+    <QueryClientProvider client={queryClient}>
+      <HashRouter>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route index element={<Navigate to="/today" replace />} />
+            <Route path="/today" element={<TodayPage />} />
+            <Route path="/plans" element={<PlansPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/score" element={<ScorePage />} />
+            <Route path="*" element={<Navigate to="/today" replace />} />
+          </Route>
+        </Routes>
+      </HashRouter>
+    </QueryClientProvider>
   )
 }

@@ -1,13 +1,11 @@
 # pnpm 11 起：所有非 auth/registry 配置都放在这里（.npmrc 里的会被忽略）。
 
-# native 模块需要平铺结构，否则 electron-rebuild / node-gyp 找不到头文件。
-# 阶段 1 接入 better-sqlite3 时会依赖这条。
+# 平铺结构更贴近 npm 的解析行为，Electron 主进程里加载模块时少一类坑。
 nodeLinker: hoisted
 
 # v11 把 onlyBuiltDependencies / neverBuiltDependencies 合并成了这个 map。
 allowBuilds:
   electron: true
-  better-sqlite3: true
   # electron-builder 的传递依赖，只用于 Squirrel 安装包（我们用 NSIS）。
   # 它不解压也不影响构建，但显式置 true 可以避免 pnpm 每次 install 以非零码退出。
   electron-winstaller: true

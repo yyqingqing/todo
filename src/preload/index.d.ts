@@ -1,8 +1,8 @@
-export {}
+import type { Api } from '@shared/ipc-contract'
 
 declare global {
   interface Window {
-    /** 阶段 0 占位。阶段 1 替换为 shared/ipc-contract 里的 Api 类型 */
-    api: Record<string, unknown>
+    /** 由 preload 的 contextBridge 注入，形状见 shared/ipc-contract.ts */
+    api: Api
   }
 }

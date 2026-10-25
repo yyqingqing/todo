@@ -1,6 +1,8 @@
 import { PRODUCT } from '@shared/product'
+import { useQuery } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { getApi } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { applyTheme, readThemeMode, type ThemeMode } from '../../lib/theme'
 
@@ -18,6 +20,13 @@ interface SettingsDialogProps {
 export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [themeMode, setThemeMode] = useState<ThemeMode>(readThemeMode)
+
+  // 只在弹窗打开时查询，避免应用启动时就打一次 IPC
+  const { data: dbInfo } = useQuery({
+    queryKey: ['db-info'],
+    queryFn: () => getApi().app.info(),
+    enabled: open,
+  })
 
   // 用原生 <dialog>：焦点陷阱、Esc 关闭、关闭后焦点归还浏览器已经实现好了，
   // 手写这三件事是可访问性 bug 的高发区。
@@ -96,6 +105,20 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </button>
               ))}
             </fieldset>
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-2 border-t border-line pt-4">
+          <h3 className="text-xs font-medium tracking-wide text-ink-muted">数据</h3>
+          <div className="flex flex-col gap-1">
+            <span className="text-sm text-ink">存储位置</span>
+            <span className="break-all text-xs text-ink-muted">{dbInfo?.path ?? '读取中…'}</span>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <span className="text-sm text-ink">结构版本</span>
+            <span className="tabular text-xs text-ink-muted">
+              {dbInfo ? `v${dbInfo.schemaVersion}` : '—'}
+            </span>
           </div>
         </section>
 
