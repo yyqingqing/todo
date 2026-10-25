@@ -41,12 +41,21 @@ function readCloseAction(): 'tray' | 'quit' {
   }
 }
 
-/** 上次退出时悬浮窗是否开着。读不到就当作关闭 */
+/**
+ * 上次退出时悬浮窗是否开着。
+ *
+ * 没有记录时返回 START_HIDDEN：
+ * 开机自启（--hidden）不弹主窗口，如果悬浮窗也不出来，用户开机后
+ * **看不到任何东西**，只会以为应用没启动。首次自启必须给一个可见落点。
+ * 正常启动（用户双击图标）则保持关闭，别突然冒出一个悬浮窗。
+ */
 function readOverlayVisible(): boolean {
   try {
-    return allSettings(getDb())['overlay.visible'] === '1'
+    const value = allSettings(getDb())['overlay.visible']
+    if (value === undefined) return START_HIDDEN
+    return value === '1'
   } catch {
-    return false
+    return START_HIDDEN
   }
 }
 
