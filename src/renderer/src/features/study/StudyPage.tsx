@@ -57,7 +57,15 @@ function Metric({ label, value }: { label: string; value: string }) {
  * 而"每段多少分钟"这个场景只需要柱高 + hover 数值。
  */
 function BucketChart({ buckets }: { buckets: StudyBucket[] }) {
-  const max = Math.max(...buckets.map((bucket) => bucket.seconds), 1)
+  /**
+   * Y 轴下限 30 分钟。
+   *
+   * 不加下限时，只有一天有数据、而那天才学了 2 秒，柱子会占满整张图，
+   * 看起来像"学了一整天"。柱状图表达的是相对比例，但读者需要一把尺子 ——
+   * 30 分钟是"一眼能看出确实学了东西"的最小刻度，低于它的柱子靠最小高度 4% 可见。
+   */
+  const MIN_SCALE_SECONDS = 30 * 60
+  const max = Math.max(...buckets.map((bucket) => bucket.seconds), MIN_SCALE_SECONDS)
   // 柱子多的时候隔几个标一次，否则标签会挤成一团
   const labelStep = Math.max(1, Math.ceil(buckets.length / 8))
 
