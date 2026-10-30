@@ -185,11 +185,89 @@ export interface PickableTask {
   planTitle: string
 }
 
-/** 悬浮窗状态。锁定时鼠标事件穿透到下层窗口，只能看不能点 */
+/** 悬浮球吸附在哪条边。null = 没有吸附，浮在桌面上任意位置 */
+export type OverlayDock = 'left' | 'right'
+
+/**
+ * 悬浮窗状态。锁定时鼠标事件穿透到下层窗口，只能看不能点。
+ *
+ * 两个"收起"状态要分清：
+ * - collapsed：用户把它收成了球（意图，会落库）；
+ * - hoverExpanded：球吸在屏幕边缘时鼠标移上去的临时展开（临时，不落库）。
+ */
 export interface OverlayState {
   visible: boolean
   locked: boolean
   collapsed: boolean
+  dock: OverlayDock | null
+  hoverExpanded: boolean
+}
+
+/* ------------------------------------------------------------------ */
+/* 学习时间                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 计时结束的原因。
+ *
+ * - manual：用户点了「结束计时」
+ * - quit：应用正常退出时收尾
+ * - suspend：系统休眠时收尾
+ * - crashed：进程被杀 / 断电，下次启动时按最后心跳回收
+ */
+export type StudyEndReason = 'manual' | 'quit' | 'suspend' | 'crashed'
+
+/** 一次计时的记录。endedAt 为 null 表示还在进行中 */
+export interface StudySession {
+  id: string
+  /** UTC ISO */
+  startedAt: string
+  /** UTC ISO，进行中为 null */
+  endedAt: string | null
+  durationSeconds: number
+  endReason: StudyEndReason
+  planId: string | null
+  categoryId: string | null
+}
+
+/**
+ * 当前计时状态。
+ *
+ * elapsedSeconds 是主进程给的快照，渲染进程拿它 + 本地时钟自己走秒；
+ * 不每秒走 IPC，窗口隐藏时也不需要主进程推。
+ */
+export interface StudyStatus {
+  running: boolean
+  /** UTC ISO，没在计时时为 null */
+  startedAt: string | null
+  elapsedSeconds: number
+}
+
+/** 统计分桶粒度 */
+export type StudyGranularity = 'day' | 'week' | 'month'
+
+/** 统计图里的一根柱子 */
+export interface StudyBucket {
+  /** 稳定 key：2026-10-30 / 2026-W44 / 2026-10 */
+  key: string
+  /** 轴上的短标签：10-30 / W44 / 10月 */
+  label: string
+  seconds: number
+  sessionCount: number
+}
+
+export interface StudyStats {
+  from: DateString
+  to: DateString
+  granularity: StudyGranularity
+  totalSeconds: number
+  sessionCount: number
+  /** 单次最长（只算落在区间内的部分） */
+  longestSeconds: number
+  /** 日均：总时长 ÷ 区间天数，不是 ÷ 有记录的天数 */
+  averageSeconds: number
+  /** 空桶也补 0，保证柱子连续 */
+  buckets: StudyBucket[]
 }
 
 /* ------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 import { IPC } from '@shared/ipc-contract'
 import type { CategoryInput, PlanInput, TaskInput, TodoCreateInput } from '@shared/types'
-import { app, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { broadcastDataChanged } from '../broadcast'
 import { getDatabaseInfo, getDb } from '../db/connection'
 import { getMonthView } from '../db/repo/calendar.repo'
@@ -24,7 +24,11 @@ import {
   LAUNCH_AT_LOGIN_KEY,
 } from '../launch-at-login'
 import { toggleTodoWithScore } from '../services/todo.service'
+import { getStudyStats } from '../study/stats'
+import { getStudyStatus, listStudySessions, startStudy, stopStudy } from '../study/timer'
 import {
+  beginOverlayDrag,
+  endOverlayDrag,
   getOverlayState,
   hideOverlay,
   showOverlay,
@@ -279,4 +283,35 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.overlayToggleLocked, () => toggleOverlayLocked())
   ipcMain.handle(IPC.overlayToggleCollapsed, () => toggleOverlayCollapsed())
   ipcMain.handle(IPC.overlayGetState, () => getOverlayState())
+  ipcMain.handle(IPC.overlayDragStart, () => beginOverlayDrag())
+  ipcMain.handle(IPC.overlayDragEnd, () => endOverlayDrag())
+
+  // 学习计时：状态全部在主进程，渲染进程只是显示器
+  ipcMain.handle(IPC.studyStart, () => startStudy())
+  ipcMain.handle(IPC.studyStop, () => stopStudy())
+  ipcMain.handle(IPC.studyStatus, () => getStudyStatus())
+  ipcMain.handle(IPC.studySessions, (_event, from: unknown, to: unknown) =>
+    listStudySessions(requireDate(from, 'from'), requireDate(to, 'to')),
+  )
+  ipcMain.handle(IPC.studyStats, (_event, raw: unknown) => {
+    const record = asRecord(raw, 'studyStats')
+    const from = requireDate(record['from'], 'from')
+    const to = requireDate(record['to'], 'to')
+    const granularity = record['granularity']
+    if (
+      granularity !== undefined &&
+      granularity !== 'day' &&
+      granularity !== 'week' &&
+      granularity !== 'month'
+    ) {
+      throw new Error('参数校验失败：granularity 只能是 day / week / month')
+    }
+    return getStudyStats(from, to, granularity)
+  })
+
+  // 只隐藏发起调用的那个窗口：隐藏走的是窗口 API，不触发 close 事件，
+  // 所以不会碰到「关闭按钮时」那个设置（选了"直接退出"也不会把应用关掉）
+  ipcMain.handle(IPC.windowHide, (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.hide()
+  })
 }

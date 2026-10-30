@@ -23,3 +23,7 @@ release/
 *.db-journal
 *.db-wal
 *.db-shm
+
+# 开发调试时用 --user-data-dir 指向工作区的 profile（绕过系统 %APPDATA%）
+.userdata/
+.userdata-*/

@@ -1,6 +1,6 @@
 import type { OverlayState } from '@shared/types'
-import { Check, ChevronDown, ChevronUp, Lock, LockOpen, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Check, Circle, Lock, LockOpen, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import BrandMark from '../../components/BrandMark'
 import { getApi } from '../../lib/api'
 import { cn } from '../../lib/cn'
@@ -20,8 +20,12 @@ const ICON_BUTTON =
  * 窗口本身是透明无边框的，这里的根元素负责画出「一张半透明卡片」，
  * 卡片外的区域直接透出桌面。
  *
- * 顶部是拖拽区（-webkit-app-region: drag），按钮必须显式标 no-drag，
- * 否则在拖拽区里的按钮点不动 —— 这是 Electron 无边框窗口最常见的坑。
+ * 两个形态：
+ * - panel：360×460 面板，"下拉"形态。顶部是拖拽区（-webkit-app-region: drag），
+ *   按钮必须显式标 no-drag，否则在拖拽区里的按钮点不动 —— 无边框窗口最常见的坑。
+ * - ball：56×56 悬浮球，"上拉"形态。拖到屏幕左右边缘会吸附，悬停临时展开。
+ *   球不能用 app-region: drag（拖拽区会吞掉 click，球就点不开了），
+ *   拖动由主进程按光标位移搬窗口，见 beginDrag / endDrag。
  */
 export default function OverlayApp() {
   const { today } = useToday()
@@ -50,6 +54,8 @@ export default function OverlayApp() {
     visible: true,
     locked: false,
     collapsed: false,
+    dock: null,
+    hoverExpanded: false,
   })
 
   useEffect(() => {
@@ -70,9 +76,72 @@ export default function OverlayApp() {
     }
   }, [])
 
+  const dragging = useRef(false)
+
   const todos = data ?? []
   const total = todos.length
   const doneCount = todos.filter((todo) => todo.status === 'done').length
+
+  /* ---------------- 悬浮球 ---------------- */
+
+  const isBall = state.collapsed && !state.hoverExpanded
+
+  async function handlePointerUp(event: React.PointerEvent<HTMLButtonElement>): Promise<void> {
+    const element = event.currentTarget
+    if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId)
+    if (!dragging.current) return
+    dragging.current = false
+
+    const moved = await getApi().overlay.endDrag()
+    // 没位移 = 这是一次点击：把球展开成面板
+    if (!moved) void getApi().overlay.toggleCollapsed()
+  }
+
+  if (isBall) {
+    return (
+      <button
+        type="button"
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return
+          event.preventDefault()
+          void getApi().overlay.toggleCollapsed()
+        }}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return
+          event.currentTarget.setPointerCapture(event.pointerId)
+          dragging.current = true
+          void getApi().overlay.beginDrag()
+        }}
+        onPointerUp={(event) => {
+          void handlePointerUp(event)
+        }}
+        onPointerCancel={() => {
+          if (!dragging.current) return
+          dragging.current = false
+          void getApi().overlay.endDrag()
+        }}
+        className={cn(
+          'flex h-full w-full cursor-grab touch-none flex-col items-center justify-center gap-px rounded-full',
+          'border bg-[var(--overlay-bg)] text-ink backdrop-blur-sm transition-colors select-none',
+          'active:cursor-grabbing',
+          state.locked ? 'border-warn/60' : 'border-[var(--overlay-line)] hover:border-brand/50',
+          // 吸附时球有一半在屏幕外，把内容推到露出来的那半边，别被切掉
+          state.dock === 'right' ? 'pr-7' : state.dock === 'left' ? 'pl-7' : null,
+        )}
+        aria-label={`今日待办 ${doneCount}/${total}`}
+      >
+        <BrandMark size={15} className="shrink-0 text-brand" />
+        <span className="tabular text-[10px] leading-none text-ink-muted">
+          {doneCount}/{total}
+        </span>
+        {state.locked ? (
+          <Lock size={9} strokeWidth={2.2} className="mt-px text-warn" aria-hidden="true" />
+        ) : null}
+      </button>
+    )
+  }
+
+  /* ---------------- 面板 ---------------- */
 
   return (
     <div
@@ -96,14 +165,13 @@ export default function OverlayApp() {
             onClick={() => {
               void getApi().overlay.toggleCollapsed()
             }}
-            aria-label={state.collapsed ? '展开列表' : '折叠为标题条'}
+            // 收起后的形态是悬浮球，箭头（上拉/下拉）在这里不成立，
+            // 用圆圈本身表示"缩成球"
+            aria-label={state.hoverExpanded ? '固定展开' : '收起为悬浮球'}
+            title={state.hoverExpanded ? '固定展开' : '收起为悬浮球'}
             className={ICON_BUTTON}
           >
-            {state.collapsed ? (
-              <ChevronDown size={14} strokeWidth={1.8} aria-hidden="true" />
-            ) : (
-              <ChevronUp size={14} strokeWidth={1.8} aria-hidden="true" />
-            )}
+            <Circle size={13} strokeWidth={2} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -132,70 +200,68 @@ export default function OverlayApp() {
         </div>
       </header>
 
-      {!state.collapsed ? (
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-          {todos.length === 0 ? (
-            <p className="px-2 py-6 text-center text-xs text-ink-muted">今天还没有安排</p>
-          ) : (
-            <ul className="flex flex-col">
-              {todos.map((todo) => {
-                const done = todo.status === 'done'
-                return (
-                  <li key={todo.id}>
-                    <label className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-panel-hover">
-                      <input
-                        type="checkbox"
-                        checked={done}
-                        onChange={() => {
-                          void toggle.mutateAsync(todo.id)
-                        }}
-                        className="peer sr-only"
-                      />
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border transition-colors',
-                          'peer-focus-visible:ring-2 peer-focus-visible:ring-brand/40',
-                          done
-                            ? 'border-brand bg-brand text-on-brand'
-                            : 'border-line-strong bg-transparent',
-                        )}
-                      >
-                        {done ? <Check size={10} strokeWidth={3.4} /> : null}
-                      </span>
-                      {/* 悬浮窗空间小，用色点区分"计划任务"和"临时事项"，不放大段文字 */}
-                      {todo.planTitle ? (
-                        <span
-                          className="mt-1 size-1.5 shrink-0 rounded-full"
-                          style={colorStyle(todo.planColor)}
-                          aria-hidden="true"
-                        />
-                      ) : (
-                        <span
-                          className="mt-1 size-1.5 shrink-0 rounded-full bg-ink-subtle/40"
-                          aria-hidden="true"
-                        />
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+        {todos.length === 0 ? (
+          <p className="px-2 py-6 text-center text-xs text-ink-muted">今天还没有安排</p>
+        ) : (
+          <ul className="flex flex-col">
+            {todos.map((todo) => {
+              const done = todo.status === 'done'
+              return (
+                <li key={todo.id}>
+                  <label className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-panel-hover">
+                    <input
+                      type="checkbox"
+                      checked={done}
+                      onChange={() => {
+                        void toggle.mutateAsync(todo.id)
+                      }}
+                      className="peer sr-only"
+                    />
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border transition-colors',
+                        'peer-focus-visible:ring-2 peer-focus-visible:ring-brand/40',
+                        done
+                          ? 'border-brand bg-brand text-on-brand'
+                          : 'border-line-strong bg-transparent',
                       )}
+                    >
+                      {done ? <Check size={10} strokeWidth={3.4} /> : null}
+                    </span>
+                    {/* 悬浮窗空间小，用色点区分"计划任务"和"临时事项"，不放大段文字 */}
+                    {todo.planTitle ? (
                       <span
-                        className={cn(
-                          'text-xs break-words',
-                          done ? 'text-ink-subtle line-through' : 'text-ink',
-                        )}
-                      >
-                        {todo.title}
-                      </span>
-                    </label>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </div>
-      ) : null}
+                        className="mt-1 size-1.5 shrink-0 rounded-full"
+                        style={colorStyle(todo.planColor)}
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <span
+                        className="mt-1 size-1.5 shrink-0 rounded-full bg-ink-subtle/40"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <span
+                      className={cn(
+                        'text-xs break-words',
+                        done ? 'text-ink-subtle line-through' : 'text-ink',
+                      )}
+                    >
+                      {todo.title}
+                    </span>
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
 
       {state.locked ? (
-        <div className="shrink-0 border-t border-warn/30 bg-warn-soft px-3 py-1.5 text-center [-webkit-app-region:no-drag]">
-          <p className="text-[11px] font-medium text-warn">
+        <div className="flex h-7 shrink-0 items-center justify-center border-t border-warn/30 bg-warn-soft px-3 [-webkit-app-region:no-drag]">
+          <p className="text-[11px] leading-none font-medium text-warn">
             已锁定：点击会穿透 · 按 Ctrl+Shift+L 解锁
           </p>
         </div>

@@ -3,11 +3,20 @@ import { dirname, join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IPC } from '@shared/ipc-contract'
 import { PRODUCT } from '@shared/product'
-import { app, BrowserWindow, globalShortcut, nativeTheme, session, shell } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  globalShortcut,
+  nativeTheme,
+  powerMonitor,
+  session,
+  shell,
+} from 'electron'
 import { closeDatabase, getDb, openDatabase } from './db/connection'
 import { allSettings } from './db/repo/setting.repo'
 import { registerIpcHandlers } from './ipc'
 import { syncLaunchAtLogin } from './launch-at-login'
+import { disposeStudyTracking, initStudyTracking, stopStudy } from './study/timer'
 import { createTray, destroyTray } from './tray'
 import {
   disposeOverlay,
@@ -212,6 +221,9 @@ if (!app.requestSingleInstanceLock()) {
 
     // 数据库必须在建窗口之前就绪：窗口一加载就可能通过 IPC 发起查询
     openDatabase()
+    // 紧接着回收上次没正常结束的学习计时（被强杀 / 断电 / 关机来不及写），
+    // 必须早于建窗口，否则界面会先读到一条"还在计时"的旧记录
+    initStudyTracking()
     registerIpcHandlers()
 
     // 把「开机自启」设置同步到系统；用户可能在外面手动关过，每次启动纠正一次
@@ -219,7 +231,7 @@ if (!app.requestSingleInstanceLock()) {
 
     // 恢复上次的悬浮窗状态：开机自启后主窗口是隐藏的，
     // 如果悬浮窗也不出来，用户会以为程序没启动
-    if (readOverlayVisible()) showOverlay()
+    if (readOverlayVisible()) void showOverlay()
 
     // dev 下 F12 开 DevTools、F5 刷新（生产环境自动不生效）
     app.on('browser-window-created', (_, window) => {
@@ -227,6 +239,12 @@ if (!app.requestSingleInstanceLock()) {
     })
 
     createMainWindow()
+
+    // 系统休眠 = 人离开了。学习计时直接收尾，别把睡着的 8 小时算成学习；
+    // 醒来后不自动续计（要续的话用户自己再点开始）
+    powerMonitor.on('suspend', () => {
+      stopStudy('suspend')
+    })
 
     createTray({
       showMain: showMainWindow,
@@ -243,7 +261,7 @@ if (!app.requestSingleInstanceLock()) {
     })
     globalShortcut.register('CommandOrControl+Shift+O', () => {
       if (getOverlayState().visible) hideOverlay()
-      else showOverlay()
+      else void showOverlay()
     })
 
     app.on('activate', () => {
@@ -253,6 +271,8 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('before-quit', () => {
     isQuitting = true
+    // 正常退出也要把学习计时收尾，否则下次启动会被当成"崩溃"回收
+    disposeStudyTracking()
   })
 
   app.on('window-all-closed', () => {

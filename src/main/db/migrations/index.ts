@@ -2,6 +2,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { all, get, transaction } from '../sql'
 import { up as initUp } from './001-init'
 import { up as inheritCategoryUp } from './002-inherit-category'
+import { up as studyTimeUp } from './003-study-time'
 
 export interface Migration {
   version: number
@@ -16,6 +17,7 @@ export interface Migration {
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'init', up: initUp },
   { version: 2, name: 'inherit-category', up: inheritCategoryUp },
+  { version: 3, name: 'study-time', up: studyTimeUp },
 ]
 
 /**

@@ -5,6 +5,7 @@ import AppShell from './components/AppShell'
 import CalendarPage from './features/calendar/CalendarPage'
 import PlansPage from './features/plans/PlansPage'
 import ScorePage from './features/score/ScorePage'
+import StudyPage from './features/study/StudyPage'
 import TodayPage from './features/today/TodayPage'
 import { queryClient } from './lib/query-client'
 import { watchSystemTheme } from './lib/theme'
@@ -26,6 +27,7 @@ export default function App() {
             <Route path="/plans" element={<PlansPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/score" element={<ScorePage />} />
+            <Route path="/study" element={<StudyPage />} />
             <Route path="*" element={<Navigate to="/today" replace />} />
           </Route>
         </Routes>

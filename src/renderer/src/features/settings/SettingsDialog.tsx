@@ -278,7 +278,7 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   </span>
                 </span>
                 <span className="text-xs text-ink-muted">
-                  可拖到任意位置 · Ctrl+Shift+L 锁定穿透 · Ctrl+Shift+O 显示/隐藏
+                  拖到屏幕左右边缘会吸附成悬浮球，鼠标移上去展开
                 </span>
               </div>
               <Button

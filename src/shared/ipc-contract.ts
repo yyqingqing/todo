@@ -13,6 +13,10 @@ import type {
   PlanNode,
   ScoreEntry,
   ScoreOverview,
+  StudyGranularity,
+  StudySession,
+  StudyStats,
+  StudyStatus,
   Task,
   TaskInput,
   TodoCreateInput,
@@ -90,14 +94,51 @@ export interface Api {
     overview(): Promise<ScoreOverview>
   }
 
+  study: {
+    /** 开始计时。已经在计时时直接返回当前状态（幂等，双击不会产生两条记录） */
+    start(): Promise<StudyStatus>
+    /** 结束计时。没在计时时也正常返回 */
+    stop(): Promise<StudyStatus>
+    status(): Promise<StudyStatus>
+    /**
+     * 按本地日期闭区间取**已结束**的会话，按开始时间倒序。
+     * 跨零点的会话会完整返回，由调用方按需裁剪。
+     */
+    sessions(from: DateString, to: DateString): Promise<StudySession[]>
+    /**
+     * 区间统计。granularity 省略时按区间长度自动选（≤31 天按天、≤180 天按周、否则按月）。
+     * 跨零点的会话在服务端按本地日切分，不会重复计算。
+     */
+    stats(query: {
+      from: DateString
+      to: DateString
+      granularity?: StudyGranularity
+    }): Promise<StudyStats>
+    /**
+     * 单次会话超过 4 小时时主进程推一次提醒。
+     * 只是提醒，不会自动结束 —— 用户可能在长视频课里。
+     */
+    onLongSession(callback: (status: StudyStatus) => void): () => void
+  }
+
   overlay: {
     show(): Promise<void>
     hide(): Promise<void>
     /** 切换点击穿透。返回切换后的锁定状态 */
     toggleLocked(): Promise<boolean>
-    /** 折叠成只有标题条，或展开 */
+    /** 收起成悬浮球，或展开回面板 */
     toggleCollapsed(): Promise<boolean>
     getState(): Promise<OverlayState>
+    /**
+     * 开始拖动悬浮球。
+     *
+     * 球是拖拽区就收不到 click，所以不用 -webkit-app-region，改成
+     * 渲染进程按下时通知主进程，由主进程按光标位移搬窗口 —— 这样
+     * "拖一下"和"点一下"能靠位移量区分开。
+     */
+    beginDrag(): Promise<void>
+    /** 结束拖动。返回这次是否真的移动过（没移动就是一次点击） */
+    endDrag(): Promise<boolean>
   }
 
   setting: {
@@ -114,6 +155,14 @@ export interface Api {
    */
   window: {
     onHidden(callback: () => void): () => void
+    /**
+     * 把发起调用的窗口藏起来（不是关闭）。
+     *
+     * 用于「钉在桌面」：悬浮窗起来之后主窗口就该退到后台，
+     * 走托盘图标随时能回来。不能用 window.close() 代替 ——
+     * 关闭行为受设置里的「关闭按钮时」影响，用户选了"直接退出"时会直接把应用关掉。
+     */
+    hide(): Promise<void>
   }
 
   /**
@@ -140,6 +189,8 @@ export const IPC = {
 
   /** 主窗口被隐藏时主进程 -> 渲染进程的单向通知 */
   windowHidden: 'window:hidden',
+  /** 渲染进程 -> 主进程：把发起调用的窗口藏起来 */
+  windowHide: 'window:hide',
 
   categoryList: 'category:list',
   categorySave: 'category:save',
@@ -166,6 +217,14 @@ export const IPC = {
   scoreRecent: 'score:recent',
   scoreOverview: 'score:overview',
 
+  studyStart: 'study:start',
+  studyStop: 'study:stop',
+  studyStatus: 'study:status',
+  studySessions: 'study:sessions',
+  studyStats: 'study:stats',
+  /** 主 → 渲染：单次会话过长（4 小时）的提醒 */
+  studyLongSession: 'study:long-session',
+
   settingAll: 'setting:all',
   settingSet: 'setting:set',
 
@@ -174,6 +233,8 @@ export const IPC = {
   overlayToggleLocked: 'overlay:toggle-locked',
   overlayToggleCollapsed: 'overlay:toggle-collapsed',
   overlayGetState: 'overlay:get-state',
+  overlayDragStart: 'overlay:drag-start',
+  overlayDragEnd: 'overlay:drag-end',
   /** 主 → 渲染：悬浮窗状态变化 */
   overlayState: 'overlay:state',
 
@@ -182,4 +243,4 @@ export const IPC = {
 } as const
 
 /** 广播的实体名。渲染进程用它决定失效哪些 query */
-export type DataEntity = 'plan' | 'task' | 'category' | 'todo' | 'score' | 'setting'
+export type DataEntity = 'plan' | 'task' | 'category' | 'todo' | 'score' | 'setting' | 'study'

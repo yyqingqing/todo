@@ -16,6 +16,7 @@ const INVALIDATION: Readonly<Record<string, readonly (readonly string[])[]>> = {
   todo: [['plan'], ['todo'], ['calendar']],
   category: [['category'], ['plan'], ['calendar']],
   score: [['score']],
+  study: [['study']],
   setting: [['settings']],
 }
 

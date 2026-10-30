@@ -76,8 +76,16 @@ export default function TodayPage() {
               size="sm"
               variant="ghost"
               onClick={() => {
-                if (overlayState?.visible) void getApi().overlay.hide()
-                else void getApi().overlay.show()
+                if (overlayState?.visible) {
+                  void getApi().overlay.hide()
+                  return
+                }
+                // 钉到桌面 = 交给悬浮窗，主窗口退到后台（托盘图标还在，点一下能回来）。
+                // 必须等 show() resolve（那时悬浮窗真的可见了）再藏主窗口，否则屏幕会空一下。
+                void (async () => {
+                  await getApi().overlay.show()
+                  await getApi().window.hide()
+                })()
               }}
             >
               <Pin size={14} aria-hidden="true" />

@@ -57,7 +57,7 @@ function rebuildMenu(handlers: TrayHandlers): void {
       label: overlay.visible ? '隐藏悬浮窗' : '显示悬浮窗',
       click: () => {
         if (overlay.visible) hideOverlay()
-        else showOverlay()
+        else void showOverlay()
       },
     },
     {

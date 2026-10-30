@@ -1,6 +1,6 @@
 import type { Api } from '@shared/ipc-contract'
 import { IPC } from '@shared/ipc-contract'
-import type { OverlayState } from '@shared/types'
+import type { OverlayState, StudyStatus } from '@shared/types'
 import { contextBridge, type IpcRendererEvent, ipcRenderer } from 'electron'
 
 /**
@@ -61,6 +61,25 @@ const api: Api = {
     toggleLocked: () => ipcRenderer.invoke(IPC.overlayToggleLocked),
     toggleCollapsed: () => ipcRenderer.invoke(IPC.overlayToggleCollapsed),
     getState: () => ipcRenderer.invoke(IPC.overlayGetState),
+    beginDrag: () => ipcRenderer.invoke(IPC.overlayDragStart),
+    endDrag: () => ipcRenderer.invoke(IPC.overlayDragEnd),
+  },
+
+  study: {
+    start: () => ipcRenderer.invoke(IPC.studyStart),
+    stop: () => ipcRenderer.invoke(IPC.studyStop),
+    status: () => ipcRenderer.invoke(IPC.studyStatus),
+    sessions: (from, to) => ipcRenderer.invoke(IPC.studySessions, from, to),
+    stats: (query) => ipcRenderer.invoke(IPC.studyStats, query),
+    onLongSession: (callback) => {
+      const handler = (_event: IpcRendererEvent, status: StudyStatus): void => {
+        callback(status)
+      }
+      ipcRenderer.on(IPC.studyLongSession, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC.studyLongSession, handler)
+      }
+    },
   },
 
   setting: {
@@ -69,6 +88,7 @@ const api: Api = {
   },
 
   window: {
+    hide: () => ipcRenderer.invoke(IPC.windowHide),
     onHidden: (callback) => {
       const handler = (): void => {
         callback()
