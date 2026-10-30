@@ -25,6 +25,17 @@ const BALL_SIZE = 56
 const EDGE_VISIBLE = 28
 /** 球中心离边缘小于这个距离就算贴边 */
 const SNAP_DISTANCE = 20
+/**
+ * 悬停展开开关。
+ *
+ * false = 球必须点一下才展开。实测在桌面上，光标经常贴着屏幕边缘走，
+ * 停留 180ms 的判定太容易被路过触发，一不留神面板就自己弹出来。
+ * 关掉之后点击展开照常（走 expandPanel），下面的悬停状态机整体休眠。
+ *
+ * 想恢复悬停展开，把这里改成 true 即可 —— 相关代码与常量都还在，
+ * 只是 startCursorWatcher 不再启动轮询。
+ */
+const HOVER_EXPAND_ENABLED = false
 /** 光标在球上停留这么久才展开，避免鼠标只是路过就弹出一整块面板 */
 const HOVER_INTENT_MS = 180
 /** 光标离开面板多久后收回成球 */
@@ -448,6 +459,10 @@ export function toggleOverlayCollapsed(): boolean {
  * screen.getCursorScreenPoint() 是纯查询，120ms 一次的开销可以忽略。
  */
 function startCursorWatcher(): void {
+  // 悬停展开已关闭（HOVER_EXPAND_ENABLED）：球必须点一下才展开。
+  // 不启动轮询，下面的 tickCursorWatcher 与 hover 状态机整体休眠；
+  // 点击路径走 expandPanel，与这里无关。
+  if (!HOVER_EXPAND_ENABLED) return
   if (cursorWatcher) return
   cursorWatcher = setInterval(tickCursorWatcher, CURSOR_POLL_MS)
 }
