@@ -31,6 +31,11 @@ interface ActiveStudy {
 
 let active: ActiveStudy | null = null
 let heartbeat: ReturnType<typeof setInterval> | null = null
+/**
+ * 必须持有引用：`new Notification(...).show()` 之后如果没有任何变量指向它，
+ * GC 可能在通知真正弹出前就回收掉，表现为「偶尔不弹」——这种间歇性问题最难查。
+ */
+let longSessionNotification: Notification | null = null
 
 function elapsedSeconds(): number {
   if (!active) return 0
@@ -118,10 +123,14 @@ function remindLongSession(): void {
 
   // 主窗口可能缩在托盘里，界面弹窗没人看得到，补一条系统通知
   if (Notification.isSupported()) {
-    new Notification({
+    longSessionNotification = new Notification({
       title: '学习计时已满 4 小时',
       body: '还在继续计时。如果已经结束，记得点「结束计时」。',
-    }).show()
+    })
+    longSessionNotification.on('close', () => {
+      longSessionNotification = null
+    })
+    longSessionNotification.show()
   }
 }
 
@@ -131,9 +140,11 @@ export function listStudySessions(from: string, to: string): StudySession[] {
 }
 
 /**
- * 启动时调用：回收上次没正常结束的会话，并把休眠处理挂上。
+ * 启动时调用：回收上次没正常结束的会话。
  *
- * 顺序很重要 —— 必须在建窗口之前跑完，否则界面可能先读到"还在计时"的旧行。
+ * 必须在建窗口之前跑完，否则界面可能先读到"还在计时"的旧行。
+ * 休眠处理（powerMonitor）不在这里挂 —— 它需要 app ready 之后的时机，
+ * 放在 main/index.ts 的 whenReady 里。
  */
 export function initStudyTracking(): void {
   const recovered = recoverOpenSessions(getDb())
