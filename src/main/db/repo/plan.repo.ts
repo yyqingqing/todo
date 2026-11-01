@@ -228,6 +228,70 @@ export function savePlan(db: DatabaseSync, input: PlanInput): Plan {
 }
 
 /**
+ * 拖拽移动计划：换父级 + 在新同级里的位置。
+ *
+ * 只动 parent_id、category_id（跟随新父）和同级 sort_order，
+ * 标题、日期、备注、任务都不碰 —— 用户只是想改层级，不是想重建。
+ *
+ * index 是目标位置（0 起，按新父级下的现有顺序）。越界夹到合法范围，
+ * 因为拖拽算出来的 index 在边界情况下可能偏一两位。
+ *
+ * 整个过程必须在一个事务里：改父级和重排 sort_order 只成功一半，
+ * 会让同级顺序出现重复值，之后列表顺序就不稳定了。
+ */
+export function movePlan(
+  db: DatabaseSync,
+  id: string,
+  parentId: string | null,
+  index: number,
+): void {
+  transaction(db, () => {
+    if (!getPlan(db, id)) throw new Error('计划不存在')
+    if (parentId === id) throw new Error('不能把计划移动到它自己下面')
+    if (wouldCreateCycle(db, id, parentId)) {
+      throw new Error('不能把计划移动到它自己的子计划下面')
+    }
+
+    // 分类跟随新父级。顶级计划保留自己原来的分类（parentId 为 null 时不改）
+    let categoryId: string | null = null
+    if (parentId) {
+      const parent = getPlan(db, parentId)
+      if (!parent) throw new Error('父计划不存在')
+      categoryId = parent.categoryId
+    }
+
+    // 新父级下的兄弟（排除自己），按现有顺序
+    const siblings = all<{ id: string }>(
+      db,
+      'SELECT id FROM plan WHERE parent_id IS ? AND id != ? ORDER BY sort_order ASC, created_at ASC',
+      [parentId, id],
+    ).map((row) => row.id)
+
+    const target = Math.min(Math.max(0, Math.floor(index)), siblings.length)
+    siblings.splice(target, 0, id)
+
+    // 先挂到新父级（sort_order 紧接着统一重排）
+    const now = new Date().toISOString()
+    if (parentId === null) {
+      db.prepare('UPDATE plan SET parent_id = NULL, updated_at = ? WHERE id = ?').run(now, id)
+    } else {
+      db.prepare('UPDATE plan SET parent_id = ?, category_id = ?, updated_at = ? WHERE id = ?').run(
+        parentId,
+        categoryId,
+        now,
+        id,
+      )
+    }
+
+    // 重排整个同级：只写 sort_order，不动 updated_at（否则所有兄弟的修改时间都会被刷新）
+    const statement = db.prepare('UPDATE plan SET sort_order = ? WHERE id = ?')
+    siblings.forEach((siblingId, order) => {
+      statement.run(order, siblingId)
+    })
+  })
+}
+
+/**
  * 删除计划：子计划与任务靠外键 CASCADE 一起删除。
  *
  * 删之前先清掉这棵子树下「还没完成」的待办：

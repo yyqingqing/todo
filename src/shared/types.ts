@@ -134,6 +134,15 @@ export interface PlanInput {
   endDate: DateString
 }
 
+/** 拖拽移动计划的入参 */
+export interface PlanMoveInput {
+  id: string
+  /** 新父级；null = 提升为顶级计划 */
+  parentId: string | null
+  /** 在新父级下的目标位置（0 起）。越界由主进程夹到合法范围 */
+  index: number
+}
+
 export interface TaskInput {
   id?: string
   planId: string

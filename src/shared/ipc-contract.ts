@@ -10,6 +10,7 @@ import type {
   Plan,
   PlanDetail,
   PlanInput,
+  PlanMoveInput,
   PlanNode,
   ScoreEntry,
   ScoreOverview,
@@ -59,6 +60,11 @@ export interface Api {
     detail(id: string): Promise<PlanDetail | null>
     /** id 存在即更新，不存在即新建 */
     save(input: PlanInput): Promise<Plan>
+    /**
+     * 拖拽移动：换父级 + 在新同级里的位置。
+     * 只动层级顺序，不改标题/日期/任务；分类自动跟随新父级。
+     */
+    move(input: PlanMoveInput): Promise<void>
     remove(id: string): Promise<void>
   }
 
@@ -199,6 +205,7 @@ export const IPC = {
   planTree: 'plan:tree',
   planDetail: 'plan:detail',
   planSave: 'plan:save',
+  planMove: 'plan:move',
   planRemove: 'plan:remove',
 
   taskSave: 'task:save',

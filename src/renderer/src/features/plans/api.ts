@@ -1,4 +1,4 @@
-import type { CategoryInput, PlanInput, TaskInput } from '@shared/types'
+import type { CategoryInput, PlanInput, PlanMoveInput, TaskInput } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getApi } from '../../lib/api'
 
@@ -54,6 +54,16 @@ export function usePlanMutations() {
     onSuccess: invalidate,
   })
 
+  /**
+   * 拖拽移动。不做乐观更新：移动会改变整棵树的父子关系与同级顺序，
+   * 本地推演一遍的成本高于等一次 IPC 往返（几十毫秒），
+   * 而且推演错了（比如防环判定不一致）界面会先闪一下再跳回来。
+   */
+  const movePlan = useMutation({
+    mutationFn: (input: PlanMoveInput) => getApi().plan.move(input),
+    onSuccess: invalidate,
+  })
+
   const saveTask = useMutation({
     mutationFn: (input: TaskInput) => getApi().task.save(input),
     onSuccess: invalidate,
@@ -74,5 +84,5 @@ export function usePlanMutations() {
     onSuccess: invalidate,
   })
 
-  return { savePlan, removePlan, saveTask, removeTask, saveCategory, removeCategory }
+  return { savePlan, movePlan, removePlan, saveTask, removeTask, saveCategory, removeCategory }
 }

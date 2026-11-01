@@ -9,6 +9,7 @@ import {
   getPlanDetail,
   listPickableTasks,
   listPlanTree,
+  movePlan,
   removePlan,
   savePlan,
 } from '../db/repo/plan.repo'
@@ -76,6 +77,14 @@ function nullableNumber(value: unknown, field: string): number | null {
   if (value === undefined || value === null) return null
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new Error(`参数校验失败：${field} 必须是数字或 null`)
+  }
+  return value
+}
+
+/** 必填数字。不接受 null —— 用来挡"前端少传了一个字段"这类错误 */
+function requireNumber(value: unknown, field: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`参数校验失败：${field} 必须是数字`)
   }
   return value
 }
@@ -188,6 +197,16 @@ export function registerIpcHandlers(): void {
     const plan = savePlan(getDb(), parsePlanInput(raw))
     broadcastDataChanged('plan')
     return plan
+  })
+  ipcMain.handle(IPC.planMove, (_event, raw: unknown) => {
+    const record = asRecord(raw, 'planMove')
+    movePlan(
+      getDb(),
+      requireString(record['id'], 'id'),
+      nullableString(record['parentId'], 'parentId'),
+      requireNumber(record['index'], 'index'),
+    )
+    broadcastDataChanged('plan')
   })
   ipcMain.handle(IPC.planRemove, (_event, id: unknown) => {
     removePlan(getDb(), requireString(id, 'id'))

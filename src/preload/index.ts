@@ -28,6 +28,7 @@ const api: Api = {
     tree: () => ipcRenderer.invoke(IPC.planTree),
     detail: (id) => ipcRenderer.invoke(IPC.planDetail, id),
     save: (input) => ipcRenderer.invoke(IPC.planSave, input),
+    move: (input) => ipcRenderer.invoke(IPC.planMove, input),
     remove: (id) => ipcRenderer.invoke(IPC.planRemove, id),
   },
 
