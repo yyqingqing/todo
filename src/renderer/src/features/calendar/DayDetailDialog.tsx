@@ -1,6 +1,6 @@
 import type { DateString } from '@shared/types'
 import { useQuery } from '@tanstack/react-query'
-import { Check } from 'lucide-react'
+import { Check, Layers } from 'lucide-react'
 import { useState } from 'react'
 import Button from '../../components/Button'
 import Dialog from '../../components/Dialog'
@@ -9,6 +9,7 @@ import { cn } from '../../lib/cn'
 import { formatDateLabel, todayStr } from '../../lib/date'
 import { fieldErrorClass, inputClass } from '../../lib/ui'
 import { useTodoMutations } from '../today/api'
+import PickTaskDialog from '../today/PickTaskDialog'
 
 interface DayDetailDialogProps {
   date: DateString | null
@@ -33,6 +34,7 @@ export default function DayDetailDialog({ date, onClose }: DayDetailDialogProps)
   const { create } = useTodoMutations()
   const [title, setTitle] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [pickOpen, setPickOpen] = useState(false)
 
   // 只允许给「未来」的日期添加：
   // - 过去的日期补记没有意义，已经过去了
@@ -107,34 +109,53 @@ export default function DayDetailDialog({ date, onClose }: DayDetailDialogProps)
       )}
 
       {canAdd ? (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            void add()
-          }}
-          className="flex gap-2 border-t border-line pt-3"
-        >
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="给这一天加一条待办"
-            aria-label="新待办标题"
-            autoComplete="off"
-            className={cn(inputClass, 'min-w-0 flex-1')}
-          />
-          <Button
-            type="submit"
-            className="shrink-0"
-            disabled={title.trim().length === 0 || create.isPending}
+        <div className="flex flex-col gap-2 border-t border-line pt-3">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              void add()
+            }}
+            className="flex gap-2"
           >
-            添加
+            <input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="给这一天加一条临时事项"
+              aria-label="新待办标题"
+              autoComplete="off"
+              className={cn(inputClass, 'min-w-0 flex-1')}
+            />
+            <Button
+              type="submit"
+              className="shrink-0"
+              disabled={title.trim().length === 0 || create.isPending}
+            >
+              添加
+            </Button>
+          </form>
+
+          {/* 从计划里挑已有任务。临时事项还是计划任务，用户在这里自己选，
+              不用为了给未来某天排任务而专门跳去今日页 */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="self-start"
+            onClick={() => setPickOpen(true)}
+          >
+            <Layers size={13} aria-hidden="true" />
+            从计划里的任务添加
           </Button>
-        </form>
+        </div>
       ) : (
         <p className="border-t border-line pt-3 text-xs text-ink-muted">
           {date === todayStr() ? '今天的事项请在「今日」页添加。' : '过去的日期不能补加待办。'}
         </p>
       )}
+
+      {/* 复用今日页那个选择器：它本来就接受任意日期，只是日历这边一直没接 */}
+      {date ? (
+        <PickTaskDialog open={pickOpen} date={date} onClose={() => setPickOpen(false)} />
+      ) : null}
 
       {error ? (
         <p role="alert" className={fieldErrorClass}>

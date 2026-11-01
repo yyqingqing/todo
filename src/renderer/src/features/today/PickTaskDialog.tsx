@@ -3,6 +3,7 @@ import { Check, Layers } from 'lucide-react'
 import { useState } from 'react'
 import Button from '../../components/Button'
 import Dialog from '../../components/Dialog'
+import { formatDateLabel, todayStr } from '../../lib/date'
 import { fieldErrorClass } from '../../lib/ui'
 import { usePickableTasks, useTodoMutations } from './api'
 
@@ -38,7 +39,13 @@ export default function PickTaskDialog({ open, date, onClose }: PickTaskDialogPr
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="从计划添加到今天">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      // 同一个选择器两个入口：今日页（排到今天）和日历（排到某一天）。
+      // 标题写死"今天"的话，从日历进来会以为排错了地方。
+      title={date === todayStr() ? '从计划添加到今天' : `从计划添加到 ${formatDateLabel(date)}`}
+    >
       {isLoading ? (
         <p className="py-6 text-center text-sm text-ink-muted">加载中…</p>
       ) : tasks.length === 0 ? (
