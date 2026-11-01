@@ -1,6 +1,7 @@
 import { IPC } from '@shared/ipc-contract'
 import type { CategoryInput, PlanInput, TaskInput, TodoCreateInput } from '@shared/types'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { exportDatabase, importDatabase, relaunchAfterImport } from '../backup'
 import { broadcastDataChanged } from '../broadcast'
 import { getDatabaseInfo, getDb } from '../db/connection'
 import { getMonthView } from '../db/repo/calendar.repo'
@@ -176,6 +177,14 @@ export function registerIpcHandlers(): void {
     const actual = applyLaunchAtLogin(want)
     setSetting(getDb(), LAUNCH_AT_LOGIN_KEY, actual.enabled ? '1' : '0')
     return actual
+  })
+
+  // 备份/恢复：整库复制，不做 JSON 转换（理由见 backup.ts 顶部注释）
+  ipcMain.handle(IPC.appExportData, () => exportDatabase())
+  ipcMain.handle(IPC.appImportData, () => importDatabase())
+  ipcMain.handle(IPC.appRelaunch, () => {
+    // 导入后数据库连接已经关了，重启是唯一干净的收场
+    relaunchAfterImport()
   })
 
   ipcMain.handle(IPC.categoryList, () => listCategories(getDb()))

@@ -143,6 +143,22 @@ export interface PlanMoveInput {
   index: number
 }
 
+/** 导出结果 */
+export interface ExportResult {
+  saved: boolean
+  /** 保存到的绝对路径 */
+  path?: string
+}
+
+/** 导入结果 */
+export interface ImportResult {
+  imported: boolean
+  /** 成功时自动备份的旧库路径 —— 选错文件时还能回去 */
+  backupPath?: string
+  /** 失败原因，已经是可以直接展示的中文 */
+  error?: string
+}
+
 export interface TaskInput {
   id?: string
   planId: string

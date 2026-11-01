@@ -99,6 +99,52 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
   const [resetOpen, setResetOpen] = useState(false)
 
+  // 备份 / 恢复
+  const [exporting, setExporting] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importConfirm, setImportConfirm] = useState(false)
+  const [dataMessage, setDataMessage] = useState<string | null>(null)
+
+  const handleExport = async (): Promise<void> => {
+    setExporting(true)
+    setDataMessage(null)
+    try {
+      const result = await getApi().app.exportData()
+      if (result.saved) setDataMessage(`已导出到：${result.path ?? ''}`)
+    } catch (caught) {
+      useErrorToast.getState().show(caught instanceof Error ? caught.message : '导出失败')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  /**
+   * 导入 = 覆盖当前全部数据。
+   *
+   * 主进程侧会先把旧库自动备份一份，所以这里点错一次还有退路；
+   * 成功后不再把 importing 置回 false —— 应用马上要重启，保持按钮禁用更清楚。
+   */
+  const handleImport = async (): Promise<void> => {
+    setImportConfirm(false)
+    setImporting(true)
+    setDataMessage(null)
+    try {
+      const result = await getApi().app.importData()
+      if (!result.imported) {
+        if (result.error) useErrorToast.getState().show(result.error)
+        setImporting(false)
+        return
+      }
+      setDataMessage('导入完成，正在重启应用…')
+      window.setTimeout(() => {
+        void getApi().app.relaunch()
+      }, 1200)
+    } catch (caught) {
+      useErrorToast.getState().show(caught instanceof Error ? caught.message : '导入失败')
+      setImporting(false)
+    }
+  }
+
   /** 只重置「偏好类」设置，不碰任何业务数据 */
   const resetSettings = async (): Promise<void> => {
     applyTheme('system')
@@ -439,6 +485,45 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 打开数据目录
               </Button>
             </div>
+
+            {/* 备份 / 恢复：整库复制，换电脑或重装时用 */}
+            <div className="flex flex-col gap-2 border-t border-line pt-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm text-ink">备份与恢复</span>
+                  <span className="text-xs text-ink-muted">
+                    导出保存一个完整的数据文件；导入会「覆盖」当前全部数据，导入前自动备份一份旧的
+                  </span>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={exporting}
+                    onClick={() => void handleExport()}
+                  >
+                    {exporting ? '导出中…' : '导出'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={importing}
+                    onClick={() => setImportConfirm(true)}
+                  >
+                    {importing ? '导入中…' : '导入'}
+                  </Button>
+                </div>
+              </div>
+
+              {dataMessage ? (
+                <p
+                  role="status"
+                  className="break-all rounded-md border border-line bg-panel-sunken px-2 py-1.5 text-xs text-ink-secondary"
+                >
+                  {dataMessage}
+                </p>
+              ) : null}
+            </div>
           </section>
 
           <section className="flex flex-col gap-2 border-t border-line pt-4">
@@ -467,6 +552,17 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             void resetSettings()
           }}
           onCancel={() => setResetOpen(false)}
+        />
+
+        <ConfirmDialog
+          open={importConfirm}
+          title="导入数据会覆盖当前全部数据"
+          description="计划、任务、待办、积分、学习记录都会被备份文件里的内容替换。导入前会自动把当前数据备份一份到同目录，万一选错文件还能找回。"
+          confirmText="继续导入"
+          onConfirm={() => {
+            void handleImport()
+          }}
+          onCancel={() => setImportConfirm(false)}
         />
       </div>
     </div>

@@ -21,6 +21,14 @@ export const MIGRATIONS: readonly Migration[] = [
 ]
 
 /**
+ * 当前代码支持的最高 schema 版本。
+ *
+ * 导入备份时要拿它做上界：备份版本更高说明是更新的应用写的，
+ * 老版本去打开会读到不认识的表/列，宁可拒绝也不要半读半错。
+ */
+export const CURRENT_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]?.version ?? 0
+
+/**
  * 按版本号顺序执行未应用的迁移，返回执行后的 schema 版本。
  *
  * 每条迁移单独一个事务：失败只回滚这一条，不会留下半截 schema。

@@ -76,6 +76,12 @@ export function closeDatabase(): void {
   instance = null
 }
 
+/** 数据库文件的绝对路径（备份 / 导入要用） */
+export function getDatabasePath(): string {
+  if (!databasePath) throw new Error('数据库尚未初始化')
+  return databasePath
+}
+
 export function getDatabaseInfo(): DatabaseInfo {
   const db = getDb()
   const versionRow = get<{ version: number | null }>(

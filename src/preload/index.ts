@@ -16,6 +16,9 @@ const api: Api = {
     setLaunchAtLogin: (enabled) => ipcRenderer.invoke(IPC.appSetLaunchAtLogin, enabled),
     getLaunchState: () => ipcRenderer.invoke(IPC.appLaunchAtLoginState),
     isLaunchAtLoginSupported: () => ipcRenderer.invoke(IPC.appLaunchAtLoginSupported),
+    exportData: () => ipcRenderer.invoke(IPC.appExportData),
+    importData: () => ipcRenderer.invoke(IPC.appImportData),
+    relaunch: () => ipcRenderer.invoke(IPC.appRelaunch),
   },
 
   category: {

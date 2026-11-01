@@ -3,6 +3,8 @@ import type {
   CategoryInput,
   DatabaseInfo,
   DateString,
+  ExportResult,
+  ImportResult,
   LaunchState,
   MonthView,
   OverlayState,
@@ -46,6 +48,18 @@ export interface Api {
     getLaunchState(): Promise<LaunchState>
     /** 当前环境是否支持开机自启（= 是否已打包） */
     isLaunchAtLoginSupported(): Promise<boolean>
+    /**
+     * 导出全部数据：直接复制数据库文件（不是 JSON 快照）。
+     * 导出前会 checkpoint WAL，否则最近的写入还在 -wal 里复制不出去。
+     */
+    exportData(): Promise<ExportResult>
+    /**
+     * 从备份文件导入并**覆盖**当前数据。
+     * 内部会先把当前库自动备份一份，返回结果里带 backupPath。
+     */
+    importData(): Promise<ImportResult>
+    /** 导入完成后重启应用（当前进程的数据库连接已经关闭） */
+    relaunch(): Promise<void>
   }
 
   category: {
@@ -192,6 +206,9 @@ export const IPC = {
   appSetLaunchAtLogin: 'app:set-launch-at-login',
   appLaunchAtLoginSupported: 'app:launch-at-login-supported',
   appLaunchAtLoginState: 'app:launch-at-login-state',
+  appExportData: 'app:export-data',
+  appImportData: 'app:import-data',
+  appRelaunch: 'app:relaunch',
 
   /** 主窗口被隐藏时主进程 -> 渲染进程的单向通知 */
   windowHidden: 'window:hidden',
