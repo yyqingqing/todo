@@ -14,6 +14,7 @@ import { useToday } from '../../lib/use-today'
 import { usePlanTree } from '../plans/api'
 import { flattenTree } from '../plans/tree-utils'
 import { useTodoMutations, useTodos } from './api'
+import OverdueSection from './OverdueSection'
 import PickTaskDialog from './PickTaskDialog'
 import RolloverDialog from './RolloverDialog'
 import TodoRow from './TodoRow'
@@ -211,6 +212,9 @@ export default function TodayPage() {
               ))}
             </ul>
           )}
+
+          {/* 更早日期没完成的待办：默认只占一行，没有欠账时完全不渲染 */}
+          <OverdueSection today={today} />
         </div>
       </div>
 

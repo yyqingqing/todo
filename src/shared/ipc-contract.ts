@@ -99,6 +99,15 @@ export interface Api {
      * 只动 scheduled_date，origin_date 永远不变（"拖延几天"的统计靠它）。
      */
     rollover(ids: string[], targetDate: DateString): Promise<number>
+    /**
+     * 更早日期里还没完成的待办（"僵尸"）。
+     * 默认只返回最近 5 条；`from` 用于「加载更多」时限定下界（三个月前）。
+     * total 是全部数量，不受 limit 影响 —— 界面据此决定要不要显示「加载更多」。
+     */
+    overdue(
+      before: DateString,
+      options?: { limit?: number; from?: DateString },
+    ): Promise<{ items: TodoWithPlan[]; total: number }>
   }
   /** 从计划里挑任务排进清单时用 */
   pickableTasks(): Promise<PickableTask[]>
@@ -233,6 +242,7 @@ export const IPC = {
   todoToggle: 'todo:toggle',
   todoRemove: 'todo:remove',
   todoRollover: 'todo:rollover',
+  todoOverdue: 'todo:overdue',
 
   pickableTasks: 'plan:pickable-tasks',
 

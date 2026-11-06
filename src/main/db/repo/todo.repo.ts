@@ -36,6 +36,58 @@ export function listTodosByDate(db: DatabaseSync, date: string): TodoWithPlan[] 
   )
 }
 
+/** 更早日期里还没完成的待办（"僵尸清单"） */
+export interface OverdueTodos {
+  items: TodoWithPlan[]
+  /** 所有更早未完成的总数，不受 limit 影响 —— 界面据此决定要不要显示"加载更多" */
+  total: number
+}
+
+const OVERDUE_LIMIT = 5
+
+/**
+ * 找出「更早日期且未完成」的待办。
+ *
+ * 场景：11/1 建了 3 条，只做 1 条，之后几天没打开应用。11/6 打开时
+ * 今日页只列 11/6 的，那 2 条就永远停在过去、也没有任何入口能处理。
+ *
+ * 默认只取最近 5 条：如果三个月没打开，积压可能上百条，
+ * 一次全查出来既拖慢首屏，用户也处理不完。
+ * 点「加载更多」时传 from（三个月前）再取一批 —— 更早的基本等于放弃了。
+ */
+export function listOverdueTodos(
+  db: DatabaseSync,
+  before: string,
+  options: { limit?: number; from?: string } = {},
+): OverdueTodos {
+  const limit = options.limit ?? OVERDUE_LIMIT
+  const from = options.from ?? null
+
+  const where = 'ti.scheduled_date < ? AND ti.status = ?'
+  const params: (string | number)[] = [before, 'pending']
+
+  const rangeClause = from === null ? '' : ' AND ti.scheduled_date >= ?'
+  if (from !== null) params.push(from)
+
+  const items = all<TodoWithPlan>(
+    db,
+    `${TODO_SELECT}
+     WHERE ${where}${rangeClause}
+     ORDER BY ti.scheduled_date DESC, ti.sort_order ASC
+     LIMIT ?`,
+    // LIMIT 绑数字而不是字符串：SQLite 对 '5' 这种文本参数会当类型错误处理
+    [...params, limit],
+  )
+
+  const total =
+    get<{ count: number }>(db, `SELECT COUNT(*) AS count FROM todo_item ti WHERE ${where}`, [
+      before,
+      'pending',
+    ])?.count ?? 0
+
+  return { items, total }
+}
+
 /**
  * 新建一条待办。
  * origin_date 与 scheduled_date 同时设成今天 —— 之后顺延只改 scheduled_date，

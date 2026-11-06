@@ -17,7 +17,13 @@ import {
 import { getScoreOverview, listRecentScores } from '../db/repo/score.repo'
 import { allSettings, setSetting } from '../db/repo/setting.repo'
 import { removeTask, saveTask } from '../db/repo/task.repo'
-import { createTodo, listTodosByDate, removeTodo, rolloverTodos } from '../db/repo/todo.repo'
+import {
+  createTodo,
+  listOverdueTodos,
+  listTodosByDate,
+  removeTodo,
+  rolloverTodos,
+} from '../db/repo/todo.repo'
 import { transaction } from '../db/sql'
 import {
   applyLaunchAtLogin,
@@ -295,6 +301,27 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.todoRemove, (_event, id: unknown) => {
     removeTodo(getDb(), requireString(id, 'id'))
     broadcastDataChanged('todo')
+  })
+  ipcMain.handle(IPC.todoOverdue, (_event, before: unknown, options: unknown) => {
+    const beforeDate = requireDate(before, 'before')
+
+    // options 可选；给了就必须是对象，避免前端传个字符串进来被静默忽略
+    let limit: number | undefined
+    let from: string | undefined
+    if (options !== undefined && options !== null) {
+      const record = asRecord(options, 'options')
+      const rawLimit = record['limit']
+      if (rawLimit !== undefined && rawLimit !== null) {
+        limit = requireNumber(rawLimit, 'limit')
+        if (limit < 1 || limit > 500) throw new Error('参数校验失败：limit 必须在 1–500 之间')
+      }
+      const rawFrom = record['from']
+      if (rawFrom !== undefined && rawFrom !== null) {
+        from = requireDate(rawFrom, 'from')
+      }
+    }
+
+    return listOverdueTodos(getDb(), beforeDate, { limit, from })
   })
   ipcMain.handle(IPC.todoRollover, (_event, ids: unknown, targetDate: unknown) => {
     const moved = rolloverTodos(

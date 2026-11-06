@@ -1,15 +1,38 @@
 import type { TodoCreateInput } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getApi } from '../../lib/api'
+import { addDays } from '../../lib/date'
 
 export const todoKeys = {
   all: ['todo'] as const,
   byDate: (date: string) => ['todo', 'by-date', date] as const,
   pickable: ['todo', 'pickable'] as const,
+  overdue: (before: string, showAll: boolean) => ['todo', 'overdue', before, showAll] as const,
 }
 
 export function useTodos(date: string) {
   return useQuery({ queryKey: todoKeys.byDate(date), queryFn: () => getApi().todo.byDate(date) })
+}
+
+/** 「加载更多」时取最近三个月，更早的基本等于放弃了 */
+const OVERDUE_WINDOW_DAYS = 90
+
+/**
+ * 更早日期里还没完成的待办。
+ *
+ * 两段式加载：
+ * - 默认 5 条（折叠时也要查，因为标题行要显示"还有 N 条"的总数）
+ * - 点「加载更多」后取最近三个月全部；更早的刻意不取，那些基本等于放弃了
+ */
+export function useOverdueTodos(today: string, showAll: boolean) {
+  return useQuery({
+    queryKey: todoKeys.overdue(today, showAll),
+    queryFn: () =>
+      getApi().todo.overdue(
+        today,
+        showAll ? { from: addDays(today, -OVERDUE_WINDOW_DAYS), limit: 200 } : { limit: 5 },
+      ),
+  })
 }
 
 /**
